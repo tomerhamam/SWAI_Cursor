@@ -32,7 +32,13 @@ A system for hierarchical modeling of AI-enhanced software systems with interact
    python graph_builder.py modules/
    ```
 
-3. **View interactive diagram:**
+3. **Start the application server:**
+   ```bash
+   python app.py
+   # Open http://localhost:5000 in browser
+   ```
+
+   Or use static server for diagram-only view:
    ```bash
    python -m http.server 8000
    # Open http://localhost:8000 in browser
@@ -42,6 +48,7 @@ A system for hierarchical modeling of AI-enhanced software systems with interact
    - Click any module node to view detailed information
    - Use zoom controls to navigate the diagram
    - Status colors: Green (implemented), Yellow (placeholder), Red (error)
+   - Run surrogates: Click "Run Surrogate" in the side panel to execute placeholder behaviors
 
 ### Current Features
 - ✅ **Module Loading**: YAML-based module definitions with Pydantic validation
@@ -49,11 +56,13 @@ A system for hierarchical modeling of AI-enhanced software systems with interact
 - ✅ **Status Highlighting**: Color-coded modules by implementation status
 - ✅ **Side Panel Details**: Complete module information on click
 - ✅ **Dependency Visualization**: Arrows showing module relationships
+- ✅ **Surrogate Execution**: Static stub and mock LLM surrogates with UI integration
+- ✅ **Flask Backend**: REST API for module data and surrogate execution
 
 ## Features (In Development)
 - [x] YAML-based module definitions
 - [x] Interactive visualization
-- [ ] Surrogate execution engine
+- [x] Surrogate execution engine
 - [ ] Live file watching and updates
 
 ## Architecture

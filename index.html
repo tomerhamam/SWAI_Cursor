@@ -203,6 +203,109 @@
             font-size: 13px;
         }
 
+        .surrogate-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .surrogate-section h4 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .surrogate-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .surrogate-select {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            background: white;
+        }
+
+        .run-surrogate-btn {
+            padding: 8px 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .run-surrogate-btn:hover {
+            background: #0056b3;
+        }
+
+        .run-surrogate-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .surrogate-output {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .surrogate-output.hidden {
+            display: none;
+        }
+
+        .surrogate-output h5 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .output-section {
+            margin-bottom: 15px;
+        }
+
+        .output-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .output-json {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            padding: 10px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         .legend {
             position: absolute;
             bottom: 10px;
@@ -441,9 +544,117 @@
                 </div>
                 
                 ${dependenciesHtml}
+                
+                <div class="surrogate-section">
+                    <h4>Surrogate Execution</h4>
+                    <div class="surrogate-controls">
+                        <select id="surrogate-type" class="surrogate-select">
+                            <option value="static_stub">Static Stub</option>
+                            <option value="mock_llm">Mock LLM</option>
+                        </select>
+                        <button id="run-surrogate" class="run-surrogate-btn" data-module="${module.name}">
+                            Run Surrogate
+                        </button>
+                    </div>
+                    <div id="surrogate-output" class="surrogate-output hidden">
+                        <!-- Surrogate output will appear here -->
+                    </div>
+                </div>
             `;
             
             sidePanel.classList.remove('hidden');
+            
+            // Set up surrogate button handler
+            const runButton = document.getElementById('run-surrogate');
+            if (runButton) {
+                runButton.addEventListener('click', () => runSurrogate(moduleName));
+            }
+        }
+
+        // Run surrogate execution
+        async function runSurrogate(moduleName) {
+            const surrogateType = document.getElementById('surrogate-type').value;
+            const runButton = document.getElementById('run-surrogate');
+            const outputDiv = document.getElementById('surrogate-output');
+            
+            // Disable button and show loading
+            runButton.disabled = true;
+            runButton.innerHTML = '<span class="loading-spinner"></span>Running...';
+            
+            // Show output area
+            outputDiv.classList.remove('hidden');
+            outputDiv.innerHTML = '<div class="loading">Executing surrogate...</div>';
+            
+            try {
+                const response = await fetch('/api/run', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        module_name: moduleName,
+                        surrogate_type: surrogateType
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    displaySurrogateOutput(result);
+                } else {
+                    displaySurrogateError(result.error || 'Unknown error occurred');
+                }
+                
+            } catch (error) {
+                console.error('Error running surrogate:', error);
+                displaySurrogateError('Network error: ' + error.message);
+            } finally {
+                // Re-enable button
+                runButton.disabled = false;
+                runButton.innerHTML = 'Run Surrogate';
+            }
+        }
+
+        // Display surrogate execution output
+        function displaySurrogateOutput(result) {
+            const outputDiv = document.getElementById('surrogate-output');
+            
+            const html = `
+                <h5>Surrogate Execution Result</h5>
+                
+                <div class="output-section">
+                    <strong>Module:</strong> ${result.module_name}<br>
+                    <strong>Surrogate:</strong> ${result.surrogate_type}<br>
+                    <strong>Status:</strong> ${result.execution_info.module_status}
+                </div>
+                
+                <div class="output-section">
+                    <strong>Inputs:</strong>
+                    <div class="output-json">${JSON.stringify(result.inputs, null, 2)}</div>
+                </div>
+                
+                <div class="output-section">
+                    <strong>Outputs:</strong>
+                    <div class="output-json">${JSON.stringify(result.outputs, null, 2)}</div>
+                </div>
+                
+                <div class="output-section">
+                    <strong>Execution Info:</strong>
+                    <div class="output-json">${JSON.stringify(result.execution_info, null, 2)}</div>
+                </div>
+            `;
+            
+            outputDiv.innerHTML = html;
+        }
+
+        // Display surrogate execution error
+        function displaySurrogateError(error) {
+            const outputDiv = document.getElementById('surrogate-output');
+            
+            outputDiv.innerHTML = `
+                <h5>Execution Error</h5>
+                <div class="output-json" style="color: #721c24; background: #f8d7da;">${error}</div>
+            `;
         }
 
         // Control handlers
