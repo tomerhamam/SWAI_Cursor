@@ -1,0 +1,15 @@
+name: "MapService"
+description: "Provides map data and spatial queries for navigation"
+inputs:
+  - type: "Location"
+    description: "GPS coordinates or local position"
+  - type: "Radius"
+    description: "Search radius for map queries"
+outputs:
+  - type: "MapData"
+    description: "Relevant map information and obstacles"
+  - type: "RoadNetwork"
+    description: "Available roads and paths"
+status: "implemented"
+implementation: "database_lookup"
+dependencies: [] 

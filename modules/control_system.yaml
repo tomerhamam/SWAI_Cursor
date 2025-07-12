@@ -1,0 +1,18 @@
+name: "ControlSystem"
+description: "Translates trajectory plans into vehicle control commands"
+inputs:
+  - type: "Trajectory"
+    description: "Planned path from trajectory planner"
+  - type: "VehicleState"
+    description: "Current vehicle dynamics and status"
+outputs:
+  - type: "SteeringCommand"
+    description: "Steering wheel angle adjustment"
+  - type: "ThrottleCommand"
+    description: "Acceleration/deceleration command"
+  - type: "BrakeCommand"
+    description: "Brake application force"
+status: "placeholder"
+implementation: "pid_controller"
+dependencies:
+  - "TrajectoryPlanner" 
