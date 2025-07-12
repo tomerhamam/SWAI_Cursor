@@ -378,6 +378,7 @@
                 <button id="zoom-out">Zoom Out</button>
                 <button id="fit-screen">Fit Screen</button>
                 <button id="refresh">Refresh</button>
+                <button id="auto-refresh-toggle" onclick="toggleAutoRefresh()" style="background: #28a745;">Auto-Refresh: ON</button>
             </div>
             
             <div class="diagram-wrapper">
@@ -430,6 +431,11 @@
         let currentScale = 1;
         let moduleData = {};
         let diagramElement = null;
+        let autoRefreshEnabled = true;
+        let lastModified = {
+            modules: null,
+            diagram: null
+        };
 
         // Load module metadata
         async function loadModuleData() {
@@ -693,10 +699,98 @@
             }
         });
 
+        // Auto-refresh functionality
+        async function checkForUpdates() {
+            if (!autoRefreshEnabled) return;
+
+            try {
+                // Check modules.json for changes
+                const modulesResponse = await fetch('static/modules.json', { method: 'HEAD' });
+                const diagramResponse = await fetch('static/diagram.mmd', { method: 'HEAD' });
+                
+                const modulesModified = modulesResponse.headers.get('last-modified');
+                const diagramModified = diagramResponse.headers.get('last-modified');
+                
+                let needsRefresh = false;
+                
+                if (modulesModified && modulesModified !== lastModified.modules) {
+                    lastModified.modules = modulesModified;
+                    needsRefresh = true;
+                    console.log('Modules metadata updated, refreshing...');
+                }
+                
+                if (diagramModified && diagramModified !== lastModified.diagram) {
+                    lastModified.diagram = diagramModified;
+                    needsRefresh = true;
+                    console.log('Diagram updated, refreshing...');
+                }
+                
+                if (needsRefresh) {
+                    await refreshData();
+                }
+                
+            } catch (error) {
+                console.warn('Auto-refresh check failed:', error);
+            }
+        }
+
+        // Refresh data and UI
+        async function refreshData() {
+            try {
+                // Show brief refresh indicator
+                const indicator = document.createElement('div');
+                indicator.style.cssText = `
+                    position: fixed;
+                    top: 10px;
+                    right: 10px;
+                    background: #28a745;
+                    color: white;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    z-index: 2000;
+                    animation: fadeIn 0.3s ease-in;
+                `;
+                indicator.textContent = '🔄 Refreshing...';
+                document.body.appendChild(indicator);
+                
+                // Reload data
+                await loadModuleData();
+                await loadDiagram();
+                
+                // Remove indicator after a moment
+                setTimeout(() => {
+                    if (indicator.parentNode) {
+                        indicator.parentNode.removeChild(indicator);
+                    }
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Refresh failed:', error);
+            }
+        }
+
+        // Toggle auto-refresh
+        function toggleAutoRefresh() {
+            autoRefreshEnabled = !autoRefreshEnabled;
+            const button = document.getElementById('auto-refresh-toggle');
+            if (button) {
+                button.textContent = autoRefreshEnabled ? 'Auto-Refresh: ON' : 'Auto-Refresh: OFF';
+                button.style.background = autoRefreshEnabled ? '#28a745' : '#6c757d';
+            }
+            console.log('Auto-refresh:', autoRefreshEnabled ? 'enabled' : 'disabled');
+        }
+
         // Initialize the application
         async function init() {
             await loadModuleData();
             await loadDiagram();
+            
+            // Start auto-refresh polling (every 2 seconds)
+            if (autoRefreshEnabled) {
+                setInterval(checkForUpdates, 2000);
+                console.log('Auto-refresh polling started');
+            }
         }
 
         // Start the application
