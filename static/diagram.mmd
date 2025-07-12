@@ -1,0 +1,23 @@
+graph TD
+    SensorFusion["SensorFusion"]
+    class SensorFusion implemented
+    ControlSystem["ControlSystem"]
+    class ControlSystem placeholder
+    ObstacleDetector["ObstacleDetector"]
+    class ObstacleDetector error
+    MapService["MapService"]
+    class MapService implemented
+    TrajectoryPlanner["TrajectoryPlanner"]
+    class TrajectoryPlanner placeholder
+
+    TrajectoryPlanner --> ControlSystem
+    SensorFusion --> ObstacleDetector
+    MapService --> TrajectoryPlanner
+    ObstacleDetector --> TrajectoryPlanner
+    
+    %% Status-based styling
+    classDef implemented fill:#d4edda,stroke:#c3e6cb,stroke-width:2px,color:#155724
+    classDef placeholder fill:#fff3cd,stroke:#ffeaa7,stroke-width:2px,color:#856404
+    classDef error fill:#f8d7da,stroke:#f5c6cb,stroke-width:2px,color:#721c24
+    classDef missing fill:#f0f0f0,stroke:#999,stroke-width:1px,color:#666,stroke-dasharray: 5 5
+    

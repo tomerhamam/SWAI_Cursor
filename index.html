@@ -4,9 +4,492 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Modular AI Architecture</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f8f9fa;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .diagram-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: white;
+            border-right: 1px solid #dee2e6;
+        }
+
+        .diagram-wrapper {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: auto;
+        }
+
+        .controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .controls button {
+            margin: 0 5px;
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .controls button:hover {
+            background: #f8f9fa;
+        }
+
+        .side-panel {
+            width: 400px;
+            background: white;
+            border-left: 1px solid #dee2e6;
+            padding: 20px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .side-panel.hidden {
+            display: none;
+        }
+
+        .side-panel-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .side-panel-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            flex: 1;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #666;
+            padding: 5px;
+        }
+
+        .close-btn:hover {
+            color: #333;
+        }
+
+        .module-info {
+            margin-bottom: 20px;
+        }
+
+        .module-info h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .module-info p {
+            color: #666;
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-implemented {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-placeholder {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .io-section {
+            margin-bottom: 20px;
+        }
+
+        .io-section h4 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 14px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        .io-list {
+            list-style: none;
+        }
+
+        .io-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #f8f9fa;
+        }
+
+        .io-item:last-child {
+            border-bottom: none;
+        }
+
+        .io-type {
+            font-weight: 500;
+            color: #007bff;
+        }
+
+        .io-description {
+            color: #666;
+            font-size: 13px;
+            margin-top: 2px;
+        }
+
+        .dependencies {
+            margin-top: 20px;
+        }
+
+        .dependencies h4 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .dependency-list {
+            list-style: none;
+        }
+
+        .dependency-item {
+            padding: 5px 0;
+            color: #666;
+            font-size: 13px;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 3px 0;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            margin-right: 8px;
+        }
+
+        .legend-implemented {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+
+        .legend-placeholder {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+        }
+
+        .legend-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* Mermaid diagram styling */
+        #mermaid-diagram {
+            min-height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+
+        .error {
+            text-align: center;
+            padding: 50px;
+            color: #721c24;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 5px;
+            margin: 20px;
+        }
+    </style>
 </head>
 <body>
-    <h1>Modular AI Architecture</h1>
-    <p>Interactive module visualization coming soon...</p>
+    <div class="container">
+        <div class="diagram-container">
+            <div class="controls">
+                <button id="zoom-in">Zoom In</button>
+                <button id="zoom-out">Zoom Out</button>
+                <button id="fit-screen">Fit Screen</button>
+                <button id="refresh">Refresh</button>
+            </div>
+            
+            <div class="diagram-wrapper">
+                <div id="mermaid-diagram" class="loading">Loading diagram...</div>
+            </div>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color legend-implemented"></div>
+                    <span>Implemented</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color legend-placeholder"></div>
+                    <span>Placeholder</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color legend-error"></div>
+                    <span>Error</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="side-panel hidden" id="side-panel">
+            <div class="side-panel-header">
+                <div class="side-panel-title">Module Details</div>
+                <button class="close-btn" id="close-panel">&times;</button>
+            </div>
+            
+            <div id="module-details">
+                <!-- Module details will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#f8f9fa',
+                primaryTextColor: '#333',
+                primaryBorderColor: '#dee2e6',
+                lineColor: '#495057',
+                backgroundColor: '#ffffff'
+            }
+        });
+
+        // Global variables
+        let currentScale = 1;
+        let moduleData = {};
+        let diagramElement = null;
+
+        // Load module metadata
+        async function loadModuleData() {
+            try {
+                const response = await fetch('static/modules.json');
+                if (!response.ok) {
+                    throw new Error('Failed to load module metadata');
+                }
+                moduleData = await response.json();
+                console.log('Loaded module data:', moduleData);
+            } catch (error) {
+                console.error('Error loading module data:', error);
+            }
+        }
+
+        // Load and render diagram
+        async function loadDiagram() {
+            try {
+                const response = await fetch('static/diagram.mmd');
+                if (!response.ok) {
+                    throw new Error('Failed to load diagram');
+                }
+                const diagramText = await response.text();
+                
+                const diagramContainer = document.getElementById('mermaid-diagram');
+                diagramContainer.innerHTML = diagramText;
+                
+                // Render with Mermaid
+                await mermaid.run({
+                    querySelector: '#mermaid-diagram'
+                });
+                
+                // Set up click handlers after rendering
+                setupClickHandlers();
+                
+            } catch (error) {
+                console.error('Error loading diagram:', error);
+                document.getElementById('mermaid-diagram').innerHTML = 
+                    '<div class="error">Error loading diagram. Please make sure the diagram file exists.</div>';
+            }
+        }
+
+        // Setup click handlers for diagram nodes
+        function setupClickHandlers() {
+            // Find all nodes in the rendered diagram
+            const nodes = document.querySelectorAll('#mermaid-diagram .node');
+            
+            nodes.forEach(node => {
+                const textElement = node.querySelector('.label');
+                if (textElement) {
+                    const moduleName = textElement.textContent.trim();
+                    node.style.cursor = 'pointer';
+                    node.addEventListener('click', () => showModuleDetails(moduleName));
+                }
+            });
+        }
+
+        // Show module details in side panel
+        function showModuleDetails(moduleName) {
+            const module = moduleData[moduleName];
+            if (!module) {
+                console.warn('Module not found:', moduleName);
+                return;
+            }
+
+            const sidePanel = document.getElementById('side-panel');
+            const detailsContainer = document.getElementById('module-details');
+            
+            // Build HTML for module details
+            const statusClass = `status-${module.status}`;
+            const dependenciesHtml = module.dependencies.length > 0 
+                ? `<div class="dependencies">
+                     <h4>Dependencies</h4>
+                     <ul class="dependency-list">
+                       ${module.dependencies.map(dep => `<li class="dependency-item">${dep}</li>`).join('')}
+                     </ul>
+                   </div>`
+                : '';
+
+            detailsContainer.innerHTML = `
+                <div class="module-info">
+                    <h3>${module.name}</h3>
+                    <p>${module.description}</p>
+                    <div>
+                        <span class="status-badge ${statusClass}">${module.status}</span>
+                        ${module.implementation ? `<span style="margin-left: 10px; color: #666; font-size: 12px;">Implementation: ${module.implementation}</span>` : ''}
+                    </div>
+                </div>
+                
+                <div class="io-section">
+                    <h4>Inputs</h4>
+                    <ul class="io-list">
+                        ${module.inputs.map(input => `
+                            <li class="io-item">
+                                <div class="io-type">${input.type}</div>
+                                <div class="io-description">${input.description}</div>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+                
+                <div class="io-section">
+                    <h4>Outputs</h4>
+                    <ul class="io-list">
+                        ${module.outputs.map(output => `
+                            <li class="io-item">
+                                <div class="io-type">${output.type}</div>
+                                <div class="io-description">${output.description}</div>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+                
+                ${dependenciesHtml}
+            `;
+            
+            sidePanel.classList.remove('hidden');
+        }
+
+        // Control handlers
+        document.getElementById('close-panel').addEventListener('click', () => {
+            document.getElementById('side-panel').classList.add('hidden');
+        });
+
+        document.getElementById('refresh').addEventListener('click', async () => {
+            document.getElementById('mermaid-diagram').innerHTML = '<div class="loading">Loading diagram...</div>';
+            await loadModuleData();
+            await loadDiagram();
+        });
+
+        // Zoom controls (basic implementation)
+        document.getElementById('zoom-in').addEventListener('click', () => {
+            currentScale *= 1.2;
+            const diagram = document.querySelector('#mermaid-diagram svg');
+            if (diagram) {
+                diagram.style.transform = `scale(${currentScale})`;
+            }
+        });
+
+        document.getElementById('zoom-out').addEventListener('click', () => {
+            currentScale /= 1.2;
+            const diagram = document.querySelector('#mermaid-diagram svg');
+            if (diagram) {
+                diagram.style.transform = `scale(${currentScale})`;
+            }
+        });
+
+        document.getElementById('fit-screen').addEventListener('click', () => {
+            currentScale = 1;
+            const diagram = document.querySelector('#mermaid-diagram svg');
+            if (diagram) {
+                diagram.style.transform = 'scale(1)';
+            }
+        });
+
+        // Initialize the application
+        async function init() {
+            await loadModuleData();
+            await loadDiagram();
+        }
+
+        // Start the application
+        init();
+    </script>
 </body>
 </html> 

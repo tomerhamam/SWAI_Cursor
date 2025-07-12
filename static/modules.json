@@ -1,0 +1,144 @@
+{
+  "SensorFusion": {
+    "name": "SensorFusion",
+    "description": "Combines multiple sensor inputs into unified world model",
+    "status": "implemented",
+    "implementation": "deep_learning",
+    "inputs": [
+      {
+        "type": "LidarData",
+        "description": "3D point cloud from LiDAR sensor"
+      },
+      {
+        "type": "CameraImage",
+        "description": "RGB image from front camera"
+      },
+      {
+        "type": "IMUData",
+        "description": "Inertial measurement unit readings"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "WorldModel",
+        "description": "Unified representation of environment"
+      }
+    ],
+    "dependencies": []
+  },
+  "ControlSystem": {
+    "name": "ControlSystem",
+    "description": "Translates trajectory plans into vehicle control commands",
+    "status": "placeholder",
+    "implementation": "pid_controller",
+    "inputs": [
+      {
+        "type": "Trajectory",
+        "description": "Planned path from trajectory planner"
+      },
+      {
+        "type": "VehicleState",
+        "description": "Current vehicle dynamics and status"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "SteeringCommand",
+        "description": "Steering wheel angle adjustment"
+      },
+      {
+        "type": "ThrottleCommand",
+        "description": "Acceleration/deceleration command"
+      },
+      {
+        "type": "BrakeCommand",
+        "description": "Brake application force"
+      }
+    ],
+    "dependencies": [
+      "TrajectoryPlanner"
+    ]
+  },
+  "ObstacleDetector": {
+    "name": "ObstacleDetector",
+    "description": "Detects and tracks dynamic obstacles in vehicle path",
+    "status": "error",
+    "implementation": "computer_vision",
+    "inputs": [
+      {
+        "type": "WorldModel",
+        "description": "Current understanding of environment"
+      },
+      {
+        "type": "VehicleState",
+        "description": "Current vehicle position and velocity"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "ObstacleList",
+        "description": "List of detected obstacles with positions and velocities"
+      },
+      {
+        "type": "CollisionRisk",
+        "description": "Assessment of potential collision risks"
+      }
+    ],
+    "dependencies": [
+      "SensorFusion"
+    ]
+  },
+  "MapService": {
+    "name": "MapService",
+    "description": "Provides map data and spatial queries for navigation",
+    "status": "implemented",
+    "implementation": "database_lookup",
+    "inputs": [
+      {
+        "type": "Location",
+        "description": "GPS coordinates or local position"
+      },
+      {
+        "type": "Radius",
+        "description": "Search radius for map queries"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "MapData",
+        "description": "Relevant map information and obstacles"
+      },
+      {
+        "type": "RoadNetwork",
+        "description": "Available roads and paths"
+      }
+    ],
+    "dependencies": []
+  },
+  "TrajectoryPlanner": {
+    "name": "TrajectoryPlanner",
+    "description": "Plans optimal vehicle trajectory from current pose to goal",
+    "status": "placeholder",
+    "implementation": "rule-based",
+    "inputs": [
+      {
+        "type": "Pose",
+        "description": "Current vehicle position and orientation"
+      },
+      {
+        "type": "Goal",
+        "description": "Target destination coordinates"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "Trajectory",
+        "description": "Sequence of waypoints to follow"
+      }
+    ],
+    "dependencies": [
+      "MapService",
+      "ObstacleDetector"
+    ]
+  }
+}
