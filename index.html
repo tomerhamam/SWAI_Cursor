@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Modular AI Architecture</title>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
+    <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+    <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -414,18 +416,8 @@
     </div>
 
     <script>
-        // Initialize Mermaid
-        mermaid.initialize({
-            startOnLoad: false,
-            theme: 'default',
-            themeVariables: {
-                primaryColor: '#f8f9fa',
-                primaryTextColor: '#333',
-                primaryBorderColor: '#dee2e6',
-                lineColor: '#495057',
-                backgroundColor: '#ffffff'
-            }
-        });
+        // Initialize Cytoscape
+        let cy = null;
 
         // Global variables
         let currentScale = 1;
@@ -451,55 +443,181 @@
             }
         }
 
-        // Load and render diagram
+        // Load and render diagram with Cytoscape
         async function loadDiagram() {
             try {
-                const response = await fetch('static/diagram.mmd');
-                if (!response.ok) {
-                    throw new Error('Failed to load diagram');
-                }
-                const diagramText = await response.text();
+                console.log('Loading diagram with Cytoscape...');
                 
                 const diagramContainer = document.getElementById('mermaid-diagram');
-                diagramContainer.innerHTML = diagramText;
+                if (!diagramContainer) {
+                    throw new Error('Could not find diagram container element');
+                }
                 
-                // Render with Mermaid
-                await mermaid.run({
-                    querySelector: '#mermaid-diagram'
+                // Clear container
+                diagramContainer.innerHTML = '';
+                
+                // Build Cytoscape elements from module data
+                const elements = buildCytoscapeElements();
+                console.log('Built Cytoscape elements:', elements.length);
+                
+                // Initialize Cytoscape
+                cy = cytoscape({
+                    container: diagramContainer,
+                    
+                    elements: elements,
+                    
+                    style: [
+                        {
+                            selector: 'node',
+                            style: {
+                                'background-color': 'data(color)',
+                                'label': 'data(label)',
+                                'text-valign': 'center',
+                                'text-halign': 'center',
+                                'font-size': '12px',
+                                'font-weight': 'bold',
+                                'color': '#333',
+                                'text-wrap': 'wrap',
+                                'text-max-width': '120px',
+                                'width': '120px',
+                                'height': '60px',
+                                'border-width': 2,
+                                'border-color': 'data(borderColor)',
+                                'shape': 'roundrectangle'
+                            }
+                        },
+                        {
+                            selector: 'edge',
+                            style: {
+                                'width': 2,
+                                'line-color': '#666',
+                                'target-arrow-color': '#666',
+                                'target-arrow-shape': 'triangle',
+                                'curve-style': 'bezier'
+                            }
+                        },
+                        {
+                            selector: 'node:hover',
+                            style: {
+                                'border-width': 3,
+                                'border-color': '#007bff'
+                            }
+                        }
+                    ],
+                    
+                    layout: {
+                        name: 'dagre',
+                        directed: true,
+                        spacingFactor: 1.5,
+                        nodeSep: 50,
+                        rankSep: 100
+                    }
                 });
                 
-                // Set up click handlers after rendering
-                setupClickHandlers();
+                // Set up click handlers
+                cy.on('tap', 'node', function(evt) {
+                    const node = evt.target;
+                    const moduleName = node.data('id');
+                    console.log('Node clicked:', moduleName);
+                    showModuleDetails(moduleName);
+                });
+                
+                console.log('Cytoscape diagram loaded successfully');
                 
             } catch (error) {
                 console.error('Error loading diagram:', error);
                 document.getElementById('mermaid-diagram').innerHTML = 
-                    '<div class="error">Error loading diagram. Please make sure the diagram file exists.</div>';
+                    `<div class="error">Error loading diagram: ${error.message}</div>`;
+            }
+        }
+        
+        // Build Cytoscape elements from module data
+        function buildCytoscapeElements() {
+            const elements = [];
+            
+            // Add nodes
+            for (const [name, module] of Object.entries(moduleData)) {
+                const color = getStatusColor(module.status);
+                const borderColor = getStatusBorderColor(module.status);
+                
+                elements.push({
+                    data: {
+                        id: name,
+                        label: name,
+                        color: color,
+                        borderColor: borderColor,
+                        status: module.status
+                    }
+                });
+            }
+            
+            // Add edges (dependencies)
+            for (const [name, module] of Object.entries(moduleData)) {
+                if (module.dependencies && module.dependencies.length > 0) {
+                    for (const dep of module.dependencies) {
+                        if (moduleData[dep]) { // Only add edge if dependency exists
+                            elements.push({
+                                data: {
+                                    id: `${dep}-${name}`,
+                                    source: dep,
+                                    target: name
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+            
+            return elements;
+        }
+        
+        // Get status colors
+        function getStatusColor(status) {
+            switch (status) {
+                case 'implemented': return '#d4edda';
+                case 'placeholder': return '#fff3cd';
+                case 'error': return '#f8d7da';
+                default: return '#f0f0f0';
+            }
+        }
+        
+        function getStatusBorderColor(status) {
+            switch (status) {
+                case 'implemented': return '#c3e6cb';
+                case 'placeholder': return '#ffeaa7';
+                case 'error': return '#f5c6cb';
+                default: return '#999';
             }
         }
 
-        // Setup click handlers for diagram nodes
-        function setupClickHandlers() {
-            // Find all nodes in the rendered diagram
-            const nodes = document.querySelectorAll('#mermaid-diagram .node');
-            
-            nodes.forEach(node => {
-                const textElement = node.querySelector('.label');
-                if (textElement) {
-                    const moduleName = textElement.textContent.trim();
-                    node.style.cursor = 'pointer';
-                    node.addEventListener('click', () => showModuleDetails(moduleName));
-                }
-            });
+        // Refresh Cytoscape diagram
+        function refreshDiagram() {
+            if (cy) {
+                console.log('Refreshing Cytoscape diagram...');
+                const elements = buildCytoscapeElements();
+                cy.elements().remove();
+                cy.add(elements);
+                cy.layout({
+                    name: 'dagre',
+                    directed: true,
+                    spacingFactor: 1.5,
+                    nodeSep: 50,
+                    rankSep: 100
+                }).run();
+                console.log('Diagram refreshed');
+            }
         }
 
         // Show module details in side panel
         function showModuleDetails(moduleName) {
-            const module = moduleData[moduleName];
-            if (!module) {
-                console.warn('Module not found:', moduleName);
-                return;
-            }
+            try {
+                console.log('Showing details for module:', moduleName);
+                const module = moduleData[moduleName];
+                if (!module) {
+                    console.warn('Module not found:', moduleName);
+                    return;
+                }
+                console.log('Module data:', module);
 
             const sidePanel = document.getElementById('side-panel');
             const detailsContainer = document.getElementById('module-details');
@@ -574,6 +692,13 @@
             const runButton = document.getElementById('run-surrogate');
             if (runButton) {
                 runButton.addEventListener('click', () => runSurrogate(moduleName));
+            }
+            } catch (error) {
+                console.error('Error showing module details:', error);
+                const sidePanel = document.getElementById('side-panel');
+                const detailsContainer = document.getElementById('module-details');
+                detailsContainer.innerHTML = '<div class="error">Error loading module details</div>';
+                sidePanel.classList.remove('hidden');
             }
         }
 
@@ -756,7 +881,7 @@
                 
                 // Reload data
                 await loadModuleData();
-                await loadDiagram();
+                refreshDiagram();
                 
                 // Remove indicator after a moment
                 setTimeout(() => {
@@ -781,20 +906,61 @@
             console.log('Auto-refresh:', autoRefreshEnabled ? 'enabled' : 'disabled');
         }
 
+        // Setup UI event handlers
+        function setupUIHandlers() {
+            console.log('Setting up UI event handlers...');
+            
+            // Close button for side panel
+            const closeBtn = document.getElementById('close-panel');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => {
+                    document.getElementById('side-panel').classList.add('hidden');
+                });
+            }
+            
+            // Auto-refresh toggle button
+            const autoRefreshBtn = document.getElementById('auto-refresh-toggle');
+            if (autoRefreshBtn) {
+                autoRefreshBtn.addEventListener('click', toggleAutoRefresh);
+            }
+            
+            console.log('UI event handlers setup complete');
+        }
+
         // Initialize the application
         async function init() {
-            await loadModuleData();
-            await loadDiagram();
+            console.log('Initializing application...');
+            
+            try {
+                console.log('Loading module data...');
+                await loadModuleData();
+                console.log('Module data loaded successfully');
+                
+                console.log('Loading diagram...');
+                await loadDiagram();
+                console.log('Diagram loaded successfully');
+            } catch (error) {
+                console.error('Error during initialization:', error);
+            }
+            
+            // Set up UI event handlers
+            console.log('Setting up UI handlers...');
+            setupUIHandlers();
             
             // Start auto-refresh polling (every 2 seconds)
             if (autoRefreshEnabled) {
                 setInterval(checkForUpdates, 2000);
                 console.log('Auto-refresh polling started');
             }
+            
+            console.log('Application initialization complete');
         }
 
-        // Start the application
-        init();
+        // Start the application when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM ready, starting application...');
+            init();
+        });
     </script>
 </body>
 </html> 
