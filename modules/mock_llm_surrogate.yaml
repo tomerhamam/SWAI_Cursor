@@ -1,0 +1,16 @@
+name: "MockLLMSurrogate"
+description: "Mock LLM surrogate that simulates AI-based execution with prompt logging"
+inputs:
+  - type: "dict"
+    description: "Input data for LLM prompt generation"
+  - type: "str"
+    description: "Prompt template for mock LLM execution"
+outputs:
+  - type: "dict"
+    description: "Mock LLM response with tokens and execution metadata"
+  - type: "str"
+    description: "Log file path for prompt tracking"
+status: "implemented"
+implementation: "surrogate.py:MockLLMSurrogate"
+dependencies:
+  - "SurrogateRegistry" 

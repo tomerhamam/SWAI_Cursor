@@ -1,0 +1,16 @@
+name: "GraphBuilder"
+description: "Converts module definitions to Mermaid.js diagram format with interactive visualization"
+inputs:
+  - type: "List[ModuleNode]"
+    description: "Validated module objects from ModuleLoader"
+  - type: "Path"
+    description: "Output directory for generated diagram files"
+outputs:
+  - type: "str"
+    description: "Generated Mermaid diagram syntax with styling"
+  - type: "dict"
+    description: "JSON metadata for web interface consumption"
+status: "implemented"
+implementation: "graph_builder.py"
+dependencies:
+  - "ModuleLoader" 

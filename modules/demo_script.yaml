@@ -1,0 +1,21 @@
+name: "DemoScript"
+description: "Comprehensive validation script demonstrating complete system workflow"
+inputs:
+  - type: "str"
+    description: "Modules directory path for validation"
+outputs:
+  - type: "ValidationReport"
+    description: "Detailed report of all component functionality tests"
+  - type: "bool"
+    description: "Overall system health status"
+status: "implemented"
+implementation: "demo.py"
+dependencies:
+  - "ModuleLoader"
+  - "GraphBuilder"
+  - "SurrogateRegistry"
+  - "StaticStubSurrogate"
+  - "MockLLMSurrogate"
+  - "WebServer"
+  - "FileWatcher"
+  - "WebUI" 

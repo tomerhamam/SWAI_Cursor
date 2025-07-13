@@ -1,0 +1,12 @@
+name: "StaticStubSurrogate"
+description: "Basic surrogate implementation that returns static placeholder data for testing"
+inputs:
+  - type: "dict"
+    description: "Input data from module execution request"
+outputs:
+  - type: "dict"
+    description: "Static response with timestamp and input echo"
+status: "implemented"
+implementation: "surrogate.py:StaticStubSurrogate"
+dependencies:
+  - "SurrogateRegistry" 

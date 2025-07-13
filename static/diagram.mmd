@@ -1,19 +1,40 @@
 graph TD
-    SensorFusion["SensorFusion"]
-    class SensorFusion implemented
-    ControlSystem["ControlSystem"]
-    class ControlSystem placeholder
-    ObstacleDetector["ObstacleDetector"]
-    class ObstacleDetector error
-    MapService["MapService"]
-    class MapService implemented
-    TrajectoryPlanner["TrajectoryPlanner"]
-    class TrajectoryPlanner placeholder
+    DemoScript["DemoScript"]
+    class DemoScript implemented
+    WebServer["WebServer"]
+    class WebServer implemented
+    GraphBuilder["GraphBuilder"]
+    class GraphBuilder implemented
+    SurrogateRegistry["SurrogateRegistry"]
+    class SurrogateRegistry implemented
+    FileWatcher["FileWatcher"]
+    class FileWatcher implemented
+    StaticStubSurrogate["StaticStubSurrogate"]
+    class StaticStubSurrogate implemented
+    WebUI["WebUI"]
+    class WebUI implemented
+    ModuleLoader["ModuleLoader"]
+    class ModuleLoader implemented
+    MockLLMSurrogate["MockLLMSurrogate"]
+    class MockLLMSurrogate implemented
 
-    TrajectoryPlanner --> ControlSystem
-    SensorFusion --> ObstacleDetector
-    MapService --> TrajectoryPlanner
-    ObstacleDetector --> TrajectoryPlanner
+    ModuleLoader --> DemoScript
+    GraphBuilder --> DemoScript
+    SurrogateRegistry --> DemoScript
+    StaticStubSurrogate --> DemoScript
+    MockLLMSurrogate --> DemoScript
+    WebServer --> DemoScript
+    FileWatcher --> DemoScript
+    WebUI --> DemoScript
+    ModuleLoader --> WebServer
+    GraphBuilder --> WebServer
+    SurrogateRegistry --> WebServer
+    ModuleLoader --> GraphBuilder
+    ModuleLoader --> FileWatcher
+    GraphBuilder --> FileWatcher
+    SurrogateRegistry --> StaticStubSurrogate
+    WebServer --> WebUI
+    SurrogateRegistry --> MockLLMSurrogate
     
     %% Status-based styling
     classDef implemented fill:#d4edda,stroke:#c3e6cb,stroke-width:2px,color:#155724

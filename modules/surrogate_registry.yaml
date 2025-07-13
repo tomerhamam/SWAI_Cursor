@@ -1,0 +1,15 @@
+name: "SurrogateRegistry"
+description: "Registry system for managing and executing module surrogate implementations"
+inputs:
+  - type: "str"
+    description: "Surrogate type name for lookup"
+  - type: "dict"
+    description: "Input data for surrogate execution"
+outputs:
+  - type: "Surrogate"
+    description: "Instantiated surrogate implementation"
+  - type: "dict"
+    description: "Execution results from surrogate run"
+status: "implemented"
+implementation: "surrogate.py:SurrogateRegistry"
+dependencies: [] 

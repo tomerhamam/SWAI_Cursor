@@ -1,0 +1,16 @@
+name: "WebUI"
+description: "Interactive frontend providing diagram visualization and module interaction"
+inputs:
+  - type: "JSONData"
+    description: "Module data and diagram information from WebServer"
+  - type: "UserEvent"
+    description: "User interactions like clicks, zoom, pan operations"
+outputs:
+  - type: "MermaidDiagram"
+    description: "Rendered interactive diagram with click handlers"
+  - type: "HTMLPanel"
+    description: "Side panel displaying module details and controls"
+status: "implemented"
+implementation: "index.html"
+dependencies:
+  - "WebServer" 

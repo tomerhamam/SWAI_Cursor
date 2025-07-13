@@ -1,0 +1,15 @@
+name: "ModuleLoader"
+description: "Loads and validates YAML module definitions using Pydantic schemas"
+inputs:
+  - type: "str"
+    description: "Path to modules directory containing YAML files"
+  - type: "bool"
+    description: "Optional flag to validate dependencies between modules"
+outputs:
+  - type: "List[ModuleNode]"
+    description: "List of validated module objects with schemas"
+  - type: "ValidationError"
+    description: "Detailed error information for invalid modules"
+status: "implemented"
+implementation: "loader.py"
+dependencies: [] 

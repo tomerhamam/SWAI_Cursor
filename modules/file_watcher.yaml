@@ -1,0 +1,17 @@
+name: "FileWatcher"
+description: "Monitors YAML module files for changes and triggers automatic regeneration"
+inputs:
+  - type: "str"
+    description: "Directory path to monitor for file changes"
+  - type: "float"
+    description: "Debounce delay in seconds to prevent rapid regeneration"
+outputs:
+  - type: "FileEvent"
+    description: "File system events for create, modify, delete operations"
+  - type: "bool"
+    description: "Success status of diagram regeneration"
+status: "implemented"
+implementation: "watcher.py"
+dependencies:
+  - "ModuleLoader"
+  - "GraphBuilder" 

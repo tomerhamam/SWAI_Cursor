@@ -1,0 +1,18 @@
+name: "WebServer"
+description: "Flask backend providing REST API for module data and surrogate execution"
+inputs:
+  - type: "HTTPRequest"
+    description: "HTTP requests from web interface"
+  - type: "str"
+    description: "Module name for surrogate execution"
+outputs:
+  - type: "JSONResponse"
+    description: "API responses with module data or execution results"
+  - type: "HTMLResponse"
+    description: "Main web interface served to browser"
+status: "implemented"
+implementation: "app.py"
+dependencies:
+  - "ModuleLoader"
+  - "GraphBuilder"
+  - "SurrogateRegistry" 

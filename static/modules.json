@@ -1,144 +1,257 @@
 {
-  "SensorFusion": {
-    "name": "SensorFusion",
-    "description": "Combines multiple sensor inputs into unified world model",
+  "DemoScript": {
+    "name": "DemoScript",
+    "description": "Comprehensive validation script demonstrating complete system workflow",
     "status": "implemented",
-    "implementation": "deep_learning",
+    "implementation": "demo.py",
     "inputs": [
       {
-        "type": "LidarData",
-        "description": "3D point cloud from LiDAR sensor"
-      },
-      {
-        "type": "CameraImage",
-        "description": "RGB image from front camera"
-      },
-      {
-        "type": "IMUData",
-        "description": "Inertial measurement unit readings"
+        "type": "str",
+        "description": "Modules directory path for validation"
       }
     ],
     "outputs": [
       {
-        "type": "WorldModel",
-        "description": "Unified representation of environment"
+        "type": "ValidationReport",
+        "description": "Detailed report of all component functionality tests"
+      },
+      {
+        "type": "bool",
+        "description": "Overall system health status"
+      }
+    ],
+    "dependencies": [
+      "ModuleLoader",
+      "GraphBuilder",
+      "SurrogateRegistry",
+      "StaticStubSurrogate",
+      "MockLLMSurrogate",
+      "WebServer",
+      "FileWatcher",
+      "WebUI"
+    ]
+  },
+  "WebServer": {
+    "name": "WebServer",
+    "description": "Flask backend providing REST API for module data and surrogate execution",
+    "status": "implemented",
+    "implementation": "app.py",
+    "inputs": [
+      {
+        "type": "HTTPRequest",
+        "description": "HTTP requests from web interface"
+      },
+      {
+        "type": "str",
+        "description": "Module name for surrogate execution"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "JSONResponse",
+        "description": "API responses with module data or execution results"
+      },
+      {
+        "type": "HTMLResponse",
+        "description": "Main web interface served to browser"
+      }
+    ],
+    "dependencies": [
+      "ModuleLoader",
+      "GraphBuilder",
+      "SurrogateRegistry"
+    ]
+  },
+  "GraphBuilder": {
+    "name": "GraphBuilder",
+    "description": "Converts module definitions to Mermaid.js diagram format with interactive visualization",
+    "status": "implemented",
+    "implementation": "graph_builder.py",
+    "inputs": [
+      {
+        "type": "List[ModuleNode]",
+        "description": "Validated module objects from ModuleLoader"
+      },
+      {
+        "type": "Path",
+        "description": "Output directory for generated diagram files"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "str",
+        "description": "Generated Mermaid diagram syntax with styling"
+      },
+      {
+        "type": "dict",
+        "description": "JSON metadata for web interface consumption"
+      }
+    ],
+    "dependencies": [
+      "ModuleLoader"
+    ]
+  },
+  "SurrogateRegistry": {
+    "name": "SurrogateRegistry",
+    "description": "Registry system for managing and executing module surrogate implementations",
+    "status": "implemented",
+    "implementation": "surrogate.py:SurrogateRegistry",
+    "inputs": [
+      {
+        "type": "str",
+        "description": "Surrogate type name for lookup"
+      },
+      {
+        "type": "dict",
+        "description": "Input data for surrogate execution"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "Surrogate",
+        "description": "Instantiated surrogate implementation"
+      },
+      {
+        "type": "dict",
+        "description": "Execution results from surrogate run"
       }
     ],
     "dependencies": []
   },
-  "ControlSystem": {
-    "name": "ControlSystem",
-    "description": "Translates trajectory plans into vehicle control commands",
-    "status": "placeholder",
-    "implementation": "pid_controller",
-    "inputs": [
-      {
-        "type": "Trajectory",
-        "description": "Planned path from trajectory planner"
-      },
-      {
-        "type": "VehicleState",
-        "description": "Current vehicle dynamics and status"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "SteeringCommand",
-        "description": "Steering wheel angle adjustment"
-      },
-      {
-        "type": "ThrottleCommand",
-        "description": "Acceleration/deceleration command"
-      },
-      {
-        "type": "BrakeCommand",
-        "description": "Brake application force"
-      }
-    ],
-    "dependencies": [
-      "TrajectoryPlanner"
-    ]
-  },
-  "ObstacleDetector": {
-    "name": "ObstacleDetector",
-    "description": "Detects and tracks dynamic obstacles in vehicle path",
-    "status": "error",
-    "implementation": "computer_vision",
-    "inputs": [
-      {
-        "type": "WorldModel",
-        "description": "Current understanding of environment"
-      },
-      {
-        "type": "VehicleState",
-        "description": "Current vehicle position and velocity"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "ObstacleList",
-        "description": "List of detected obstacles with positions and velocities"
-      },
-      {
-        "type": "CollisionRisk",
-        "description": "Assessment of potential collision risks"
-      }
-    ],
-    "dependencies": [
-      "SensorFusion"
-    ]
-  },
-  "MapService": {
-    "name": "MapService",
-    "description": "Provides map data and spatial queries for navigation",
+  "FileWatcher": {
+    "name": "FileWatcher",
+    "description": "Monitors YAML module files for changes and triggers automatic regeneration",
     "status": "implemented",
-    "implementation": "database_lookup",
+    "implementation": "watcher.py",
     "inputs": [
       {
-        "type": "Location",
-        "description": "GPS coordinates or local position"
+        "type": "str",
+        "description": "Directory path to monitor for file changes"
       },
       {
-        "type": "Radius",
-        "description": "Search radius for map queries"
+        "type": "float",
+        "description": "Debounce delay in seconds to prevent rapid regeneration"
       }
     ],
     "outputs": [
       {
-        "type": "MapData",
-        "description": "Relevant map information and obstacles"
+        "type": "FileEvent",
+        "description": "File system events for create, modify, delete operations"
       },
       {
-        "type": "RoadNetwork",
-        "description": "Available roads and paths"
+        "type": "bool",
+        "description": "Success status of diagram regeneration"
+      }
+    ],
+    "dependencies": [
+      "ModuleLoader",
+      "GraphBuilder"
+    ]
+  },
+  "StaticStubSurrogate": {
+    "name": "StaticStubSurrogate",
+    "description": "Basic surrogate implementation that returns static placeholder data for testing",
+    "status": "implemented",
+    "implementation": "surrogate.py:StaticStubSurrogate",
+    "inputs": [
+      {
+        "type": "dict",
+        "description": "Input data from module execution request"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "dict",
+        "description": "Static response with timestamp and input echo"
+      }
+    ],
+    "dependencies": [
+      "SurrogateRegistry"
+    ]
+  },
+  "WebUI": {
+    "name": "WebUI",
+    "description": "Interactive frontend providing diagram visualization and module interaction",
+    "status": "implemented",
+    "implementation": "index.html",
+    "inputs": [
+      {
+        "type": "JSONData",
+        "description": "Module data and diagram information from WebServer"
+      },
+      {
+        "type": "UserEvent",
+        "description": "User interactions like clicks, zoom, pan operations"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "MermaidDiagram",
+        "description": "Rendered interactive diagram with click handlers"
+      },
+      {
+        "type": "HTMLPanel",
+        "description": "Side panel displaying module details and controls"
+      }
+    ],
+    "dependencies": [
+      "WebServer"
+    ]
+  },
+  "ModuleLoader": {
+    "name": "ModuleLoader",
+    "description": "Loads and validates YAML module definitions using Pydantic schemas",
+    "status": "implemented",
+    "implementation": "loader.py",
+    "inputs": [
+      {
+        "type": "str",
+        "description": "Path to modules directory containing YAML files"
+      },
+      {
+        "type": "bool",
+        "description": "Optional flag to validate dependencies between modules"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "List[ModuleNode]",
+        "description": "List of validated module objects with schemas"
+      },
+      {
+        "type": "ValidationError",
+        "description": "Detailed error information for invalid modules"
       }
     ],
     "dependencies": []
   },
-  "TrajectoryPlanner": {
-    "name": "TrajectoryPlanner",
-    "description": "Plans optimal vehicle trajectory from current pose to goal",
-    "status": "placeholder",
-    "implementation": "rule-based",
+  "MockLLMSurrogate": {
+    "name": "MockLLMSurrogate",
+    "description": "Mock LLM surrogate that simulates AI-based execution with prompt logging",
+    "status": "implemented",
+    "implementation": "surrogate.py:MockLLMSurrogate",
     "inputs": [
       {
-        "type": "Pose",
-        "description": "Current vehicle position and orientation"
+        "type": "dict",
+        "description": "Input data for LLM prompt generation"
       },
       {
-        "type": "Goal",
-        "description": "Target destination coordinates"
+        "type": "str",
+        "description": "Prompt template for mock LLM execution"
       }
     ],
     "outputs": [
       {
-        "type": "Trajectory",
-        "description": "Sequence of waypoints to follow"
+        "type": "dict",
+        "description": "Mock LLM response with tokens and execution metadata"
+      },
+      {
+        "type": "str",
+        "description": "Log file path for prompt tracking"
       }
     ],
     "dependencies": [
-      "MapService",
-      "ObstacleDetector"
+      "SurrogateRegistry"
     ]
   }
 }
