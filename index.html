@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Modular AI Architecture</title>
     <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
-    <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
     <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+    <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
     <style>
         * {
             margin: 0;
@@ -418,6 +418,24 @@
     <script>
         // Initialize Cytoscape
         let cy = null;
+        let dagreAvailable = false;
+        
+        // Check if dagre extension is available
+        function initializeCytoscape() {
+            try {
+                if (typeof cytoscape !== 'undefined' && typeof dagre !== 'undefined') {
+                    // Register dagre extension
+                    cytoscape.use(dagre);
+                    dagreAvailable = true;
+                    console.log('Dagre extension registered successfully');
+                } else {
+                    console.warn('Dagre not available, will use fallback layout');
+                }
+            } catch (error) {
+                console.warn('Failed to register dagre extension:', error);
+                dagreAvailable = false;
+            }
+        }
 
         // Global variables
         let currentScale = 1;
@@ -505,13 +523,7 @@
                         }
                     ],
                     
-                    layout: {
-                        name: 'dagre',
-                        directed: true,
-                        spacingFactor: 1.5,
-                        nodeSep: 50,
-                        rankSep: 100
-                    }
+                    layout: getLayoutConfig()
                 });
                 
                 // Set up click handlers
@@ -571,6 +583,26 @@
             return elements;
         }
         
+        // Get layout configuration
+        function getLayoutConfig() {
+            if (dagreAvailable) {
+                return {
+                    name: 'dagre',
+                    directed: true,
+                    spacingFactor: 1.5,
+                    nodeSep: 50,
+                    rankSep: 100
+                };
+            } else {
+                // Fallback to circle layout
+                return {
+                    name: 'circle',
+                    radius: 200,
+                    spacingFactor: 1.2
+                };
+            }
+        }
+        
         // Get status colors
         function getStatusColor(status) {
             switch (status) {
@@ -597,13 +629,7 @@
                 const elements = buildCytoscapeElements();
                 cy.elements().remove();
                 cy.add(elements);
-                cy.layout({
-                    name: 'dagre',
-                    directed: true,
-                    spacingFactor: 1.5,
-                    nodeSep: 50,
-                    rankSep: 100
-                }).run();
+                cy.layout(getLayoutConfig()).run();
                 console.log('Diagram refreshed');
             }
         }
@@ -932,6 +958,10 @@
             console.log('Initializing application...');
             
             try {
+                // Initialize Cytoscape and extensions
+                console.log('Initializing Cytoscape...');
+                initializeCytoscape();
+                
                 console.log('Loading module data...');
                 await loadModuleData();
                 console.log('Module data loaded successfully');
