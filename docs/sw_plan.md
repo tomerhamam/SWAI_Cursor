@@ -160,8 +160,8 @@ mypy>=1.0.0           # Type checking
 
 ### Frontend Stack
 - **HTML5** + **Vanilla JavaScript** (no build process)
-- **Mermaid.js** (CDN) for diagram rendering
-- **Minimal CSS** for responsive layout
+- **D3.js v7** (CDN) for interactive diagram rendering
+- **Minimal CSS** for responsive layout and smooth animations
 
 ### File Structure
 ```
@@ -211,18 +211,21 @@ class Surrogate(ABC):
 ```
 
 ### 3. Visualization Approach
-- **Mermaid.js** for rapid prototyping (can upgrade to D3.js later)
+- **D3.js** for interactive force-directed layout with smooth animations
 - **Dependency arrows** showing module relationships
 - **Color coding** for status (green=implemented, yellow=placeholder, red=error)
 - **Side panel** for detailed schema inspection
+- **Advanced interactions** including zoom, pan, drag, and click handling
+
+**Decision Rationale**: D3.js was chosen over Mermaid.js for its superior interactivity capabilities, better support for complex user interactions, and more flexible styling options. While Mermaid.js would have been lighter weight, D3.js provides the rich interactive experience needed for this type of system visualization.
 
 ---
 
 ## Risk Assessment & Mitigation
 
 ### High-Risk Items
-1. **Rendering Library Choice**: Mermaid may be too limited for complex interactions
-   - *Mitigation*: Start with Mermaid, design graph builder to be renderer-agnostic
+1. **Interactive Complexity**: D3.js provides powerful features but requires more complex implementation
+   - *Mitigation*: Used force-directed layout with proven patterns, focused on core interactions first
 
 2. **File Watching Reliability**: Cross-platform file watching can be flaky
    - *Mitigation*: Fall back to manual refresh, add polling option

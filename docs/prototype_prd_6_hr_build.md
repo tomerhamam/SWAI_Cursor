@@ -46,8 +46,8 @@ This prototype will serve as the base for iterative development, Codex scripting
 
 | Layer       | Tech                     |
 |-------------|--------------------------|
-| Frontend    | HTML + JavaScript + Mermaid (or D3.js) |
-| Backend     | Python Flask (or Static) |
+| Frontend    | HTML + JavaScript + D3.js |
+| Backend     | Python Flask |
 | Data Format | YAML for module input    |
 | Deployment  | Single-folder static prototype + Python runner |
 

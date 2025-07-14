@@ -1,25 +1,5 @@
 {
   "DemoScript": {
-    "name": "DemoScript",
-    "description": "Comprehensive validation script demonstrating complete system workflow",
-    "status": "implemented",
-    "implementation": "demo.py",
-    "inputs": [
-      {
-        "type": "str",
-        "description": "Modules directory path for validation"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "ValidationReport",
-        "description": "Detailed report of all component functionality tests"
-      },
-      {
-        "type": "bool",
-        "description": "Overall system health status"
-      }
-    ],
     "dependencies": [
       "ModuleLoader",
       "GraphBuilder",
@@ -29,229 +9,249 @@
       "WebServer",
       "FileWatcher",
       "WebUI"
-    ]
-  },
-  "WebServer": {
-    "name": "WebServer",
-    "description": "Flask backend providing REST API for module data and surrogate execution",
-    "status": "implemented",
-    "implementation": "app.py",
+    ],
+    "description": "Comprehensive validation script demonstrating complete system workflow",
+    "implementation": "demo.py",
     "inputs": [
       {
-        "type": "HTTPRequest",
-        "description": "HTTP requests from web interface"
-      },
-      {
-        "type": "str",
-        "description": "Module name for surrogate execution"
+        "description": "Modules directory path for validation",
+        "type": "str"
       }
     ],
+    "name": "DemoScript",
     "outputs": [
       {
-        "type": "JSONResponse",
-        "description": "API responses with module data or execution results"
+        "description": "Detailed report of all component functionality tests",
+        "type": "ValidationReport"
       },
       {
-        "type": "HTMLResponse",
-        "description": "Main web interface served to browser"
+        "description": "Overall system health status",
+        "type": "bool"
       }
     ],
+    "status": "implemented"
+  },
+  "FileWatcher": {
+    "dependencies": [
+      "ModuleLoader",
+      "GraphBuilder"
+    ],
+    "description": "Monitors YAML module files for changes and triggers automatic regeneration",
+    "implementation": "watcher.py",
+    "inputs": [
+      {
+        "description": "Directory path to monitor for file changes",
+        "type": "str"
+      },
+      {
+        "description": "Debounce delay in seconds to prevent rapid regeneration",
+        "type": "float"
+      }
+    ],
+    "name": "FileWatcher",
+    "outputs": [
+      {
+        "description": "File system events for create, modify, delete operations",
+        "type": "FileEvent"
+      },
+      {
+        "description": "Success status of diagram regeneration",
+        "type": "bool"
+      }
+    ],
+    "status": "implemented"
+  },
+  "GraphBuilder": {
+    "dependencies": [
+      "ModuleLoader"
+    ],
+    "description": "Converts module definitions to Mermaid.js diagram format with interactive visualization",
+    "implementation": "graph_builder.py",
+    "inputs": [
+      {
+        "description": "Validated module objects from ModuleLoader",
+        "type": "List[ModuleNode]"
+      },
+      {
+        "description": "Output directory for generated diagram files",
+        "type": "Path"
+      }
+    ],
+    "name": "GraphBuilder",
+    "outputs": [
+      {
+        "description": "Generated Mermaid diagram syntax with styling",
+        "type": "str"
+      },
+      {
+        "description": "JSON metadata for web interface consumption",
+        "type": "dict"
+      }
+    ],
+    "status": "implemented"
+  },
+  "MockLLMSurrogate": {
+    "dependencies": [
+      "SurrogateRegistry"
+    ],
+    "description": "Mock LLM surrogate that simulates AI-based execution with prompt logging",
+    "implementation": "surrogate.py:MockLLMSurrogate",
+    "inputs": [
+      {
+        "description": "Input data for LLM prompt generation",
+        "type": "dict"
+      },
+      {
+        "description": "Prompt template for mock LLM execution",
+        "type": "str"
+      }
+    ],
+    "name": "MockLLMSurrogate",
+    "outputs": [
+      {
+        "description": "Mock LLM response with tokens and execution metadata",
+        "type": "dict"
+      },
+      {
+        "description": "Log file path for prompt tracking",
+        "type": "str"
+      }
+    ],
+    "status": "implemented"
+  },
+  "ModuleLoader": {
+    "dependencies": [],
+    "description": "Loads and validates YAML module definitions using Pydantic schemas",
+    "implementation": "loader.py",
+    "inputs": [
+      {
+        "description": "Path to modules directory containing YAML files",
+        "type": "str"
+      },
+      {
+        "description": "Optional flag to validate dependencies between modules",
+        "type": "bool"
+      }
+    ],
+    "name": "ModuleLoader",
+    "outputs": [
+      {
+        "description": "List of validated module objects with schemas",
+        "type": "List[ModuleNode]"
+      },
+      {
+        "description": "Detailed error information for invalid modules",
+        "type": "ValidationError"
+      }
+    ],
+    "status": "implemented"
+  },
+  "StaticStubSurrogate": {
+    "dependencies": [
+      "SurrogateRegistry"
+    ],
+    "description": "Basic surrogate implementation that returns static placeholder data for testing",
+    "implementation": "surrogate.py:StaticStubSurrogate",
+    "inputs": [
+      {
+        "description": "Input data from module execution request",
+        "type": "dict"
+      }
+    ],
+    "name": "StaticStubSurrogate",
+    "outputs": [
+      {
+        "description": "Static response with timestamp and input echo",
+        "type": "dict"
+      }
+    ],
+    "status": "implemented"
+  },
+  "SurrogateRegistry": {
+    "dependencies": [],
+    "description": "Registry system for managing and executing module surrogate implementations",
+    "implementation": "surrogate.py:SurrogateRegistry",
+    "inputs": [
+      {
+        "description": "Surrogate type name for lookup",
+        "type": "str"
+      },
+      {
+        "description": "Input data for surrogate execution",
+        "type": "dict"
+      }
+    ],
+    "name": "SurrogateRegistry",
+    "outputs": [
+      {
+        "description": "Instantiated surrogate implementation",
+        "type": "Surrogate"
+      },
+      {
+        "description": "Execution results from surrogate run",
+        "type": "dict"
+      }
+    ],
+    "status": "implemented"
+  },
+  "WebServer": {
     "dependencies": [
       "ModuleLoader",
       "GraphBuilder",
       "SurrogateRegistry"
-    ]
-  },
-  "GraphBuilder": {
-    "name": "GraphBuilder",
-    "description": "Converts module definitions to Mermaid.js diagram format with interactive visualization",
-    "status": "implemented",
-    "implementation": "graph_builder.py",
+    ],
+    "description": "Flask backend providing REST API for module data and surrogate execution",
+    "implementation": "app.py",
     "inputs": [
       {
-        "type": "List[ModuleNode]",
-        "description": "Validated module objects from ModuleLoader"
+        "description": "HTTP requests from web interface",
+        "type": "HTTPRequest"
       },
       {
-        "type": "Path",
-        "description": "Output directory for generated diagram files"
+        "description": "Module name for surrogate execution",
+        "type": "str"
       }
     ],
+    "name": "WebServer",
     "outputs": [
       {
-        "type": "str",
-        "description": "Generated Mermaid diagram syntax with styling"
+        "description": "API responses with module data or execution results",
+        "type": "JSONResponse"
       },
       {
-        "type": "dict",
-        "description": "JSON metadata for web interface consumption"
+        "description": "Main web interface served to browser",
+        "type": "HTMLResponse"
       }
     ],
-    "dependencies": [
-      "ModuleLoader"
-    ]
-  },
-  "SurrogateRegistry": {
-    "name": "SurrogateRegistry",
-    "description": "Registry system for managing and executing module surrogate implementations",
-    "status": "implemented",
-    "implementation": "surrogate.py:SurrogateRegistry",
-    "inputs": [
-      {
-        "type": "str",
-        "description": "Surrogate type name for lookup"
-      },
-      {
-        "type": "dict",
-        "description": "Input data for surrogate execution"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "Surrogate",
-        "description": "Instantiated surrogate implementation"
-      },
-      {
-        "type": "dict",
-        "description": "Execution results from surrogate run"
-      }
-    ],
-    "dependencies": []
-  },
-  "FileWatcher": {
-    "name": "FileWatcher",
-    "description": "Monitors YAML module files for changes and triggers automatic regeneration",
-    "status": "implemented",
-    "implementation": "watcher.py",
-    "inputs": [
-      {
-        "type": "str",
-        "description": "Directory path to monitor for file changes"
-      },
-      {
-        "type": "float",
-        "description": "Debounce delay in seconds to prevent rapid regeneration"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "FileEvent",
-        "description": "File system events for create, modify, delete operations"
-      },
-      {
-        "type": "bool",
-        "description": "Success status of diagram regeneration"
-      }
-    ],
-    "dependencies": [
-      "ModuleLoader",
-      "GraphBuilder"
-    ]
-  },
-  "StaticStubSurrogate": {
-    "name": "StaticStubSurrogate",
-    "description": "Basic surrogate implementation that returns static placeholder data for testing",
-    "status": "implemented",
-    "implementation": "surrogate.py:StaticStubSurrogate",
-    "inputs": [
-      {
-        "type": "dict",
-        "description": "Input data from module execution request"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "dict",
-        "description": "Static response with timestamp and input echo"
-      }
-    ],
-    "dependencies": [
-      "SurrogateRegistry"
-    ]
+    "status": "implemented"
   },
   "WebUI": {
-    "name": "WebUI",
+    "dependencies": [
+      "WebServer"
+    ],
     "description": "Interactive frontend providing diagram visualization and module interaction",
-    "status": "implemented",
     "implementation": "index.html",
     "inputs": [
       {
-        "type": "JSONData",
-        "description": "Module data and diagram information from WebServer"
+        "description": "Module data and diagram information from WebServer",
+        "type": "JSONData"
       },
       {
-        "type": "UserEvent",
-        "description": "User interactions like clicks, zoom, pan operations"
+        "description": "User interactions like clicks, zoom, pan operations",
+        "type": "UserEvent"
       }
     ],
+    "name": "WebUI",
     "outputs": [
       {
-        "type": "MermaidDiagram",
-        "description": "Rendered interactive diagram with click handlers"
+        "description": "Rendered interactive diagram with click handlers",
+        "type": "MermaidDiagram"
       },
       {
-        "type": "HTMLPanel",
-        "description": "Side panel displaying module details and controls"
+        "description": "Side panel displaying module details and controls",
+        "type": "HTMLPanel"
       }
     ],
-    "dependencies": [
-      "WebServer"
-    ]
-  },
-  "ModuleLoader": {
-    "name": "ModuleLoader",
-    "description": "Loads and validates YAML module definitions using Pydantic schemas",
-    "status": "implemented",
-    "implementation": "loader.py",
-    "inputs": [
-      {
-        "type": "str",
-        "description": "Path to modules directory containing YAML files"
-      },
-      {
-        "type": "bool",
-        "description": "Optional flag to validate dependencies between modules"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "List[ModuleNode]",
-        "description": "List of validated module objects with schemas"
-      },
-      {
-        "type": "ValidationError",
-        "description": "Detailed error information for invalid modules"
-      }
-    ],
-    "dependencies": []
-  },
-  "MockLLMSurrogate": {
-    "name": "MockLLMSurrogate",
-    "description": "Mock LLM surrogate that simulates AI-based execution with prompt logging",
-    "status": "implemented",
-    "implementation": "surrogate.py:MockLLMSurrogate",
-    "inputs": [
-      {
-        "type": "dict",
-        "description": "Input data for LLM prompt generation"
-      },
-      {
-        "type": "str",
-        "description": "Prompt template for mock LLM execution"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "dict",
-        "description": "Mock LLM response with tokens and execution metadata"
-      },
-      {
-        "type": "str",
-        "description": "Log file path for prompt tracking"
-      }
-    ],
-    "dependencies": [
-      "SurrogateRegistry"
-    ]
+    "status": "implemented"
   }
 }

@@ -106,9 +106,9 @@ dependencies:
 
 ## 7. Technical Considerations
 
-- **Frontend**: React + D3.js or Mermaid + SVG overlays.
-- **Backend**: Python Flask or Node.js for schema parsing.
-- **Persistence**: Flat files (YAML/JSON) or SQLite.
+- **Frontend**: HTML5 + D3.js for interactive visualization with force-directed layout.
+- **Backend**: Python Flask for schema parsing and API endpoints.
+- **Persistence**: Flat files (YAML/JSON) for module definitions.
 - **Extensibility**: Designed to plug into agents (OpenAI, Claude, local LLMs).
 
 ---

@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Modular AI Architecture</title>
-    <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
-    <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
-    <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -34,36 +32,36 @@
             border-right: 1px solid #dee2e6;
         }
 
-        .diagram-wrapper {
-            width: 100%;
-            height: 100%;
-            position: relative;
-            overflow: auto;
-        }
-
         .controls {
             position: absolute;
-            top: 10px;
-            left: 10px;
+            top: 20px;
+            left: 20px;
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e9ecef;
         }
 
         .controls button {
             margin: 0 5px;
-            padding: 5px 10px;
+            padding: 8px 12px;
             border: 1px solid #ddd;
             background: white;
-            border-radius: 3px;
+            border-radius: 4px;
             cursor: pointer;
             font-size: 12px;
+            transition: all 0.2s;
         }
 
         .controls button:hover {
             background: #f8f9fa;
+            border-color: #007bff;
+        }
+
+        .controls button:active {
+            transform: translateY(1px);
         }
 
         .side-panel {
@@ -73,19 +71,21 @@
             padding: 20px;
             overflow-y: auto;
             position: relative;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
         }
 
-        .side-panel.hidden {
-            display: none;
+        .side-panel.visible {
+            transform: translateX(0);
         }
 
         .side-panel-header {
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
         }
 
         .side-panel-title {
@@ -102,10 +102,13 @@
             cursor: pointer;
             color: #666;
             padding: 5px;
+            border-radius: 4px;
+            transition: all 0.2s;
         }
 
         .close-btn:hover {
             color: #333;
+            background: #f8f9fa;
         }
 
         .module-info {
@@ -121,7 +124,7 @@
         .module-info p {
             color: #666;
             margin-bottom: 10px;
-            line-height: 1.5;
+            line-height: 1.6;
         }
 
         .status-badge {
@@ -241,6 +244,7 @@
             cursor: pointer;
             font-size: 13px;
             font-weight: 500;
+            transition: background 0.2s;
         }
 
         .run-surrogate-btn:hover {
@@ -261,10 +265,11 @@
             font-size: 12px;
             max-height: 300px;
             overflow-y: auto;
+            display: none;
         }
 
-        .surrogate-output.hidden {
-            display: none;
+        .surrogate-output.visible {
+            display: block;
         }
 
         .surrogate-output h5 {
@@ -310,19 +315,20 @@
 
         .legend {
             position: absolute;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e9ecef;
             font-size: 12px;
         }
 
         .legend-item {
             display: flex;
             align-items: center;
-            margin: 3px 0;
+            margin: 5px 0;
         }
 
         .legend-color {
@@ -347,18 +353,47 @@
             border: 1px solid #f5c6cb;
         }
 
-        /* Mermaid diagram styling */
-        #mermaid-diagram {
-            min-height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        #diagram {
+            width: 100%;
+            height: 100%;
+            background: white;
+        }
+
+        .node {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .node:hover {
+            filter: brightness(1.1);
+        }
+
+        .node-rect {
+            rx: 8;
+            ry: 8;
+            stroke-width: 2;
+        }
+
+        .node-text {
+            font-size: 12px;
+            font-weight: 500;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+        }
+
+        .link {
+            fill: none;
+            stroke: #666;
+            stroke-width: 2;
+            marker-end: url(#arrowhead);
         }
 
         .loading {
             text-align: center;
             padding: 50px;
             color: #666;
+            font-size: 18px;
         }
 
         .error {
@@ -367,8 +402,20 @@
             color: #721c24;
             background: #f8d7da;
             border: 1px solid #f5c6cb;
-            border-radius: 5px;
+            border-radius: 8px;
             margin: 20px;
+        }
+
+        .zoom-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #666;
+            border: 1px solid #e9ecef;
         }
     </style>
 </head>
@@ -379,13 +426,15 @@
                 <button id="zoom-in">Zoom In</button>
                 <button id="zoom-out">Zoom Out</button>
                 <button id="fit-screen">Fit Screen</button>
+                <button id="reset-view">Reset View</button>
                 <button id="refresh">Refresh</button>
-                <button id="auto-refresh-toggle" onclick="toggleAutoRefresh()" style="background: #28a745;">Auto-Refresh: ON</button>
             </div>
             
-            <div class="diagram-wrapper">
-                <div id="mermaid-diagram" class="loading">Loading diagram...</div>
+            <div class="zoom-info" id="zoom-info">
+                Zoom: 100%
             </div>
+            
+            <svg id="diagram"></svg>
             
             <div class="legend">
                 <div class="legend-item">
@@ -403,7 +452,7 @@
             </div>
         </div>
         
-        <div class="side-panel hidden" id="side-panel">
+        <div class="side-panel" id="side-panel">
             <div class="side-panel-header">
                 <div class="side-panel-title">Module Details</div>
                 <button class="close-btn" id="close-panel">&times;</button>
@@ -416,234 +465,306 @@
     </div>
 
     <script>
-        // Initialize Cytoscape
-        let cy = null;
-        let dagreAvailable = false;
-        
-        // Check if dagre extension is available
-        function initializeCytoscape() {
-            try {
-                if (typeof cytoscape !== 'undefined' && typeof dagre !== 'undefined') {
-                    // Register dagre extension
-                    cytoscape.use(dagre);
-                    dagreAvailable = true;
-                    console.log('Dagre extension registered successfully');
-                } else {
-                    console.warn('Dagre not available, will use fallback layout');
-                }
-            } catch (error) {
-                console.warn('Failed to register dagre extension:', error);
-                dagreAvailable = false;
-            }
-        }
-
         // Global variables
-        let currentScale = 1;
+        let svg, g, zoom, simulation;
         let moduleData = {};
-        let diagramElement = null;
-        let autoRefreshEnabled = true;
-        let lastModified = {
-            modules: null,
-            diagram: null
+        let nodes = [];
+        let links = [];
+        let width, height;
+        let currentScale = 1;
+
+        // Color scheme for different statuses
+        const statusColors = {
+            'implemented': '#d4edda',
+            'placeholder': '#fff3cd',
+            'error': '#f8d7da',
+            'missing': '#f0f0f0'
         };
 
-        // Load module metadata
-        async function loadModuleData() {
-            try {
-                const response = await fetch('static/modules.json');
-                if (!response.ok) {
-                    throw new Error('Failed to load module metadata');
-                }
-                moduleData = await response.json();
-                console.log('Loaded module data:', moduleData);
-            } catch (error) {
-                console.error('Error loading module data:', error);
-            }
+        const statusBorderColors = {
+            'implemented': '#c3e6cb',
+            'placeholder': '#ffeaa7', 
+            'error': '#f5c6cb',
+            'missing': '#999'
+        };
+
+        // Initialize the diagram
+        function initializeDiagram() {
+            // Get container dimensions
+            const container = document.querySelector('.diagram-container');
+            width = container.clientWidth;
+            height = container.clientHeight;
+
+            // Create SVG
+            svg = d3.select("#diagram")
+                .attr("width", width)
+                .attr("height", height);
+
+            // Clear any existing content
+            svg.selectAll("*").remove();
+
+            // Create arrow marker
+            svg.append("defs").selectAll("marker")
+                .data(["arrowhead"])
+                .enter().append("marker")
+                .attr("id", "arrowhead")
+                .attr("viewBox", "0 -5 10 10")
+                .attr("refX", 25)
+                .attr("refY", 0)
+                .attr("markerWidth", 6)
+                .attr("markerHeight", 6)
+                .attr("orient", "auto")
+                .append("path")
+                .attr("d", "M0,-5L10,0L0,5")
+                .attr("fill", "#666");
+
+            // Create zoom behavior
+            zoom = d3.zoom()
+                .scaleExtent([0.1, 3])
+                .on("zoom", handleZoom);
+
+            svg.call(zoom);
+
+            // Create main group for all diagram elements
+            g = svg.append("g");
+
+            // Set up simulation
+            simulation = d3.forceSimulation()
+                .force("link", d3.forceLink().id(d => d.id).distance(150))
+                .force("charge", d3.forceManyBody().strength(-800))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("collision", d3.forceCollide().radius(60));
         }
 
-        // Load and render diagram with Cytoscape
-        async function loadDiagram() {
-            try {
-                console.log('Loading diagram with Cytoscape...');
-                
-                const diagramContainer = document.getElementById('mermaid-diagram');
-                if (!diagramContainer) {
-                    throw new Error('Could not find diagram container element');
-                }
-                
-                // Clear container
-                diagramContainer.innerHTML = '';
-                
-                // Build Cytoscape elements from module data
-                const elements = buildCytoscapeElements();
-                console.log('Built Cytoscape elements:', elements.length);
-                
-                // Initialize Cytoscape
-                cy = cytoscape({
-                    container: diagramContainer,
-                    
-                    elements: elements,
-                    
-                    style: [
-                        {
-                            selector: 'node',
-                            style: {
-                                'background-color': 'data(color)',
-                                'label': 'data(label)',
-                                'text-valign': 'center',
-                                'text-halign': 'center',
-                                'font-size': '12px',
-                                'font-weight': 'bold',
-                                'color': '#333',
-                                'text-wrap': 'wrap',
-                                'text-max-width': '120px',
-                                'width': '120px',
-                                'height': '60px',
-                                'border-width': 2,
-                                'border-color': 'data(borderColor)',
-                                'shape': 'roundrectangle'
-                            }
-                        },
-                        {
-                            selector: 'edge',
-                            style: {
-                                'width': 2,
-                                'line-color': '#666',
-                                'target-arrow-color': '#666',
-                                'target-arrow-shape': 'triangle',
-                                'curve-style': 'bezier'
-                            }
-                        },
-                        {
-                            selector: 'node:hover',
-                            style: {
-                                'border-width': 3,
-                                'border-color': '#007bff'
-                            }
-                        }
-                    ],
-                    
-                    layout: getLayoutConfig()
-                });
-                
-                // Set up click handlers
-                cy.on('tap', 'node', function(evt) {
-                    const node = evt.target;
-                    const moduleName = node.data('id');
-                    console.log('Node clicked:', moduleName);
-                    showModuleDetails(moduleName);
-                });
-                
-                console.log('Cytoscape diagram loaded successfully');
-                
-            } catch (error) {
-                console.error('Error loading diagram:', error);
-                document.getElementById('mermaid-diagram').innerHTML = 
-                    `<div class="error">Error loading diagram: ${error.message}</div>`;
-            }
+        // Handle zoom events
+        function handleZoom(event) {
+            const { transform } = event;
+            g.attr("transform", transform);
+            currentScale = transform.k;
+            updateZoomInfo();
         }
-        
-        // Build Cytoscape elements from module data
-        function buildCytoscapeElements() {
-            const elements = [];
-            
-            // Add nodes
-            for (const [name, module] of Object.entries(moduleData)) {
-                const color = getStatusColor(module.status);
-                const borderColor = getStatusBorderColor(module.status);
-                
-                elements.push({
-                    data: {
-                        id: name,
-                        label: name,
-                        color: color,
-                        borderColor: borderColor,
-                        status: module.status
-                    }
+
+        // Update zoom information display
+        function updateZoomInfo() {
+            const zoomPercent = Math.round(currentScale * 100);
+            document.getElementById('zoom-info').textContent = `Zoom: ${zoomPercent}%`;
+        }
+
+        // Process module data into nodes and links
+        function processData() {
+            nodes = [];
+            links = [];
+
+            // Create nodes
+            Object.entries(moduleData).forEach(([name, module]) => {
+                nodes.push({
+                    id: name,
+                    name: name,
+                    ...module
                 });
-            }
-            
-            // Add edges (dependencies)
-            for (const [name, module] of Object.entries(moduleData)) {
+            });
+
+            // Create links from dependencies
+            Object.entries(moduleData).forEach(([name, module]) => {
                 if (module.dependencies && module.dependencies.length > 0) {
-                    for (const dep of module.dependencies) {
-                        if (moduleData[dep]) { // Only add edge if dependency exists
-                            elements.push({
-                                data: {
-                                    id: `${dep}-${name}`,
-                                    source: dep,
-                                    target: name
-                                }
+                    module.dependencies.forEach(dep => {
+                        if (moduleData[dep]) {
+                            links.push({
+                                source: dep,
+                                target: name
                             });
                         }
-                    }
+                    });
                 }
-            }
+            });
+
+            console.log('Processed data:', { nodes: nodes.length, links: links.length });
+        }
+
+        // Render the diagram
+        function renderDiagram() {
+            console.log('Starting renderDiagram...');
             
-            return elements;
-        }
-        
-        // Get layout configuration
-        function getLayoutConfig() {
-            if (dagreAvailable) {
-                return {
-                    name: 'dagre',
-                    directed: true,
-                    spacingFactor: 1.5,
-                    nodeSep: 50,
-                    rankSep: 100
-                };
-            } else {
-                // Fallback to circle layout
-                return {
-                    name: 'circle',
-                    radius: 200,
-                    spacingFactor: 1.2
-                };
-            }
-        }
-        
-        // Get status colors
-        function getStatusColor(status) {
-            switch (status) {
-                case 'implemented': return '#d4edda';
-                case 'placeholder': return '#fff3cd';
-                case 'error': return '#f8d7da';
-                default: return '#f0f0f0';
-            }
-        }
-        
-        function getStatusBorderColor(status) {
-            switch (status) {
-                case 'implemented': return '#c3e6cb';
-                case 'placeholder': return '#ffeaa7';
-                case 'error': return '#f5c6cb';
-                default: return '#999';
+            try {
+                // Stop any existing simulation
+                if (simulation) {
+                    simulation.stop();
+                }
+                
+                console.log('Cleared existing simulation');
+                
+                // Clear existing elements
+                g.selectAll(".link").remove();
+                g.selectAll(".node").remove();
+                
+                console.log('Cleared existing elements');
+                
+                // Check if we have data to render
+                if (!nodes || nodes.length === 0) {
+                    console.log('No nodes to render');
+                    // Show message for no data
+                    g.append("text")
+                        .attr("x", width / 2)
+                        .attr("y", height / 2)
+                        .attr("text-anchor", "middle")
+                        .attr("fill", "#666")
+                        .text("No modules to display");
+                    return;
+                }
+                
+                console.log('Creating links...');
+                
+                // Create links
+                const link = g.append("g")
+                    .attr("class", "links")
+                    .selectAll(".link")
+                    .data(links)
+                    .enter().append("path")
+                    .attr("class", "link")
+                    .attr("marker-end", "url(#arrowhead)");
+
+                console.log('Creating nodes...');
+                
+                // Create nodes
+                const node = g.append("g")
+                    .attr("class", "nodes")
+                    .selectAll(".node")
+                    .data(nodes)
+                    .enter().append("g")
+                    .attr("class", "node")
+                    .call(d3.drag()
+                        .on("start", dragstarted)
+                        .on("drag", dragged)
+                        .on("end", dragended));
+
+                console.log('Adding rectangles...');
+                
+                // Add rectangles for nodes
+                node.append("rect")
+                    .attr("class", "node-rect")
+                    .attr("width", 120)
+                    .attr("height", 60)
+                    .attr("x", -60)
+                    .attr("y", -30)
+                    .attr("fill", d => statusColors[d.status] || statusColors.missing)
+                    .attr("stroke", d => statusBorderColors[d.status] || statusBorderColors.missing);
+
+                console.log('Adding text labels...');
+                
+                // Add text labels
+                node.append("text")
+                    .attr("class", "node-text")
+                    .attr("dy", "0.35em")
+                    .text(d => d.name)
+                    .each(function(d) {
+                        // Wrap text if too long
+                        const textElement = d3.select(this);
+                        const text = textElement.text();
+                        if (text.length > 12) {
+                            textElement.text(text.substring(0, 12) + '...');
+                        }
+                    });
+
+                console.log('Adding click handlers...');
+                
+                // Add click handlers
+                node.on("click", function(event, d) {
+                    event.stopPropagation();
+                    showModuleDetails(d.name);
+                });
+
+                console.log('Updating simulation...');
+                
+                // Update simulation nodes and links
+                simulation.nodes(nodes);
+                simulation.force("link").links(links);
+
+                console.log('Setting up tick function...');
+                
+                // Track tick count to prevent infinite loops
+                let tickCount = 0;
+                const maxTicks = 1000; // Prevent infinite loops
+                
+                // Update positions on each tick
+                simulation.on("tick", () => {
+                    tickCount++;
+                    
+                    // Safety check to prevent infinite loops
+                    if (tickCount > maxTicks) {
+                        console.log('Stopping simulation due to max ticks reached');
+                        simulation.stop();
+                        return;
+                    }
+                    
+                    try {
+                        link.attr("d", d => {
+                            const dx = d.target.x - d.source.x;
+                            const dy = d.target.y - d.source.y;
+                            const dr = Math.sqrt(dx * dx + dy * dy);
+                            return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
+                        });
+
+                        node.attr("transform", d => `translate(${d.x},${d.y})`);
+                    } catch (error) {
+                        console.error('Error in tick function:', error);
+                        simulation.stop();
+                    }
+                });
+
+                // Add end event handler
+                simulation.on("end", () => {
+                    console.log('Simulation ended successfully');
+                });
+
+                console.log('Restarting simulation...');
+                
+                // Restart simulation with reduced alpha for faster convergence
+                simulation.alpha(0.3).restart();
+                
+                // Set a timeout to stop the simulation if it runs too long
+                setTimeout(() => {
+                    if (simulation) {
+                        simulation.stop();
+                        console.log('Simulation stopped after timeout');
+                    }
+                }, 5000); // 5 second timeout
+                
+                console.log('RenderDiagram completed successfully');
+                
+            } catch (error) {
+                console.error('Error in renderDiagram:', error);
+                // Show error message
+                g.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", height / 2)
+                    .attr("text-anchor", "middle")
+                    .attr("fill", "#721c24")
+                    .text(`Error rendering diagram: ${error.message}`);
             }
         }
 
-        // Refresh Cytoscape diagram
-        function refreshDiagram() {
-            if (cy) {
-                console.log('Refreshing Cytoscape diagram...');
-                const elements = buildCytoscapeElements();
-                cy.elements().remove();
-                cy.add(elements);
-                cy.layout(getLayoutConfig()).run();
-                console.log('Diagram refreshed');
-            }
+        // Drag functions
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
         }
 
         // Show module details in side panel
         function showModuleDetails(moduleName) {
-            try {
-                console.log('Showing details for module:', moduleName);
-                const module = moduleData[moduleName];
-                if (!module) {
-                    console.warn('Module not found:', moduleName);
-                    return;
-                }
-                console.log('Module data:', module);
+            const module = moduleData[moduleName];
+            if (!module) return;
 
             const sidePanel = document.getElementById('side-panel');
             const detailsContainer = document.getElementById('module-details');
@@ -706,25 +827,18 @@
                             Run Surrogate
                         </button>
                     </div>
-                    <div id="surrogate-output" class="surrogate-output hidden">
+                    <div id="surrogate-output" class="surrogate-output">
                         <!-- Surrogate output will appear here -->
                     </div>
                 </div>
             `;
             
-            sidePanel.classList.remove('hidden');
+            sidePanel.classList.add('visible');
             
             // Set up surrogate button handler
             const runButton = document.getElementById('run-surrogate');
             if (runButton) {
                 runButton.addEventListener('click', () => runSurrogate(moduleName));
-            }
-            } catch (error) {
-                console.error('Error showing module details:', error);
-                const sidePanel = document.getElementById('side-panel');
-                const detailsContainer = document.getElementById('module-details');
-                detailsContainer.innerHTML = '<div class="error">Error loading module details</div>';
-                sidePanel.classList.remove('hidden');
             }
         }
 
@@ -739,7 +853,7 @@
             runButton.innerHTML = '<span class="loading-spinner"></span>Running...';
             
             // Show output area
-            outputDiv.classList.remove('hidden');
+            outputDiv.classList.add('visible');
             outputDiv.innerHTML = '<div class="loading">Executing surrogate...</div>';
             
             try {
@@ -815,181 +929,120 @@
         }
 
         // Control handlers
-        document.getElementById('close-panel').addEventListener('click', () => {
-            document.getElementById('side-panel').classList.add('hidden');
-        });
-
-        document.getElementById('refresh').addEventListener('click', async () => {
-            document.getElementById('mermaid-diagram').innerHTML = '<div class="loading">Loading diagram...</div>';
-            await loadModuleData();
-            await loadDiagram();
-        });
-
-        // Zoom controls (basic implementation)
         document.getElementById('zoom-in').addEventListener('click', () => {
-            currentScale *= 1.2;
-            const diagram = document.querySelector('#mermaid-diagram svg');
-            if (diagram) {
-                diagram.style.transform = `scale(${currentScale})`;
-            }
+            svg.transition().duration(300).call(zoom.scaleBy, 1.5);
         });
 
         document.getElementById('zoom-out').addEventListener('click', () => {
-            currentScale /= 1.2;
-            const diagram = document.querySelector('#mermaid-diagram svg');
-            if (diagram) {
-                diagram.style.transform = `scale(${currentScale})`;
-            }
+            svg.transition().duration(300).call(zoom.scaleBy, 1 / 1.5);
         });
 
         document.getElementById('fit-screen').addEventListener('click', () => {
-            currentScale = 1;
-            const diagram = document.querySelector('#mermaid-diagram svg');
-            if (diagram) {
-                diagram.style.transform = 'scale(1)';
+            const bounds = g.node().getBBox();
+            const fullWidth = width;
+            const fullHeight = height;
+            const scale = Math.min(fullWidth / bounds.width, fullHeight / bounds.height) * 0.8;
+            const translate = [fullWidth / 2 - scale * (bounds.x + bounds.width / 2), fullHeight / 2 - scale * (bounds.y + bounds.height / 2)];
+            
+            svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
+        });
+
+        document.getElementById('reset-view').addEventListener('click', () => {
+            svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
+        });
+
+        document.getElementById('refresh').addEventListener('click', async () => {
+            await loadAndRender();
+        });
+
+        document.getElementById('close-panel').addEventListener('click', () => {
+            document.getElementById('side-panel').classList.remove('visible');
+        });
+
+        // Close panel when clicking outside
+        document.addEventListener('click', (event) => {
+            const sidePanel = document.getElementById('side-panel');
+            const diagramContainer = document.querySelector('.diagram-container');
+            
+            if (event.target === diagramContainer || diagramContainer.contains(event.target)) {
+                if (sidePanel.classList.contains('visible')) {
+                    sidePanel.classList.remove('visible');
+                }
             }
         });
 
-        // Auto-refresh functionality
-        async function checkForUpdates() {
-            if (!autoRefreshEnabled) return;
-
-            try {
-                // Check modules.json for changes
-                const modulesResponse = await fetch('static/modules.json', { method: 'HEAD' });
-                const diagramResponse = await fetch('static/diagram.mmd', { method: 'HEAD' });
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            const container = document.querySelector('.diagram-container');
+            const newWidth = container.clientWidth;
+            const newHeight = container.clientHeight;
+            
+            if (newWidth !== width || newHeight !== height) {
+                width = newWidth;
+                height = newHeight;
                 
-                const modulesModified = modulesResponse.headers.get('last-modified');
-                const diagramModified = diagramResponse.headers.get('last-modified');
-                
-                let needsRefresh = false;
-                
-                if (modulesModified && modulesModified !== lastModified.modules) {
-                    lastModified.modules = modulesModified;
-                    needsRefresh = true;
-                    console.log('Modules metadata updated, refreshing...');
-                }
-                
-                if (diagramModified && diagramModified !== lastModified.diagram) {
-                    lastModified.diagram = diagramModified;
-                    needsRefresh = true;
-                    console.log('Diagram updated, refreshing...');
-                }
-                
-                if (needsRefresh) {
-                    await refreshData();
-                }
-                
-            } catch (error) {
-                console.warn('Auto-refresh check failed:', error);
+                svg.attr("width", width).attr("height", height);
+                simulation.force("center", d3.forceCenter(width / 2, height / 2));
+                simulation.alpha(0.3).restart();
             }
-        }
+        });
 
-        // Refresh data and UI
-        async function refreshData() {
+        // Load and render everything
+        async function loadAndRender() {
+            console.log('Starting loadAndRender...');
+            
             try {
-                // Show brief refresh indicator
-                const indicator = document.createElement('div');
-                indicator.style.cssText = `
-                    position: fixed;
-                    top: 10px;
-                    right: 10px;
-                    background: #28a745;
-                    color: white;
-                    padding: 8px 12px;
-                    border-radius: 4px;
-                    font-size: 12px;
-                    z-index: 2000;
-                    animation: fadeIn 0.3s ease-in;
-                `;
-                indicator.textContent = '🔄 Refreshing...';
-                document.body.appendChild(indicator);
+                // Show loading message
+                document.getElementById('diagram').innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#666">Loading step 1: Fetching data...</text>';
                 
-                // Reload data
+                console.log('Step 1: Loading module data...');
                 await loadModuleData();
-                refreshDiagram();
                 
-                // Remove indicator after a moment
-                setTimeout(() => {
-                    if (indicator.parentNode) {
-                        indicator.parentNode.removeChild(indicator);
-                    }
-                }, 1500);
+                document.getElementById('diagram').innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#666">Loading step 2: Processing data...</text>';
                 
-            } catch (error) {
-                console.error('Refresh failed:', error);
-            }
-        }
-
-        // Toggle auto-refresh
-        function toggleAutoRefresh() {
-            autoRefreshEnabled = !autoRefreshEnabled;
-            const button = document.getElementById('auto-refresh-toggle');
-            if (button) {
-                button.textContent = autoRefreshEnabled ? 'Auto-Refresh: ON' : 'Auto-Refresh: OFF';
-                button.style.background = autoRefreshEnabled ? '#28a745' : '#6c757d';
-            }
-            console.log('Auto-refresh:', autoRefreshEnabled ? 'enabled' : 'disabled');
-        }
-
-        // Setup UI event handlers
-        function setupUIHandlers() {
-            console.log('Setting up UI event handlers...');
-            
-            // Close button for side panel
-            const closeBtn = document.getElementById('close-panel');
-            if (closeBtn) {
-                closeBtn.addEventListener('click', () => {
-                    document.getElementById('side-panel').classList.add('hidden');
-                });
-            }
-            
-            // Auto-refresh toggle button
-            const autoRefreshBtn = document.getElementById('auto-refresh-toggle');
-            if (autoRefreshBtn) {
-                autoRefreshBtn.addEventListener('click', toggleAutoRefresh);
-            }
-            
-            console.log('UI event handlers setup complete');
-        }
-
-        // Initialize the application
-        async function init() {
-            console.log('Initializing application...');
-            
-            try {
-                // Initialize Cytoscape and extensions
-                console.log('Initializing Cytoscape...');
-                initializeCytoscape();
+                console.log('Step 2: Processing data...');
+                processData();
                 
-                console.log('Loading module data...');
-                await loadModuleData();
-                console.log('Module data loaded successfully');
+                document.getElementById('diagram').innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#666">Loading step 3: Rendering diagram...</text>';
                 
-                console.log('Loading diagram...');
-                await loadDiagram();
+                console.log('Step 3: Rendering diagram...');
+                renderDiagram();
+                
                 console.log('Diagram loaded successfully');
             } catch (error) {
-                console.error('Error during initialization:', error);
+                console.error('Error loading diagram:', error);
+                document.getElementById('diagram').innerHTML = `<text x="50%" y="50%" text-anchor="middle" fill="#721c24">Error: ${error.message}</text>`;
             }
-            
-            // Set up UI event handlers
-            console.log('Setting up UI handlers...');
-            setupUIHandlers();
-            
-            // Start auto-refresh polling (every 2 seconds)
-            if (autoRefreshEnabled) {
-                setInterval(checkForUpdates, 2000);
-                console.log('Auto-refresh polling started');
-            }
-            
-            console.log('Application initialization complete');
         }
 
-        // Start the application when DOM is ready
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM ready, starting application...');
-            init();
+        // Load module data from API
+        async function loadModuleData() {
+            console.log('Fetching from /static/modules.json...');
+            
+            try {
+                const response = await fetch('/static/modules.json');
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: Failed to load module data`);
+                }
+                
+                const data = await response.json();
+                console.log('Loaded module data:', Object.keys(data));
+                
+                moduleData = data;
+                return moduleData;
+            } catch (error) {
+                console.error('Error in loadModuleData:', error);
+                throw error;
+            }
+        }
+
+        // Initialize everything when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Initializing D3 diagram...');
+            initializeDiagram();
+            loadAndRender();
         });
     </script>
 </body>
