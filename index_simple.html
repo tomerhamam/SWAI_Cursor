@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modular AI Architecture - Simple Version</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .status {
+            margin: 20px 0;
+            padding: 10px;
+            background: #e7f5ff;
+            border-left: 4px solid #339af0;
+            border-radius: 4px;
+        }
+        
+        .error {
+            background: #ffe0e0;
+            border-left-color: #ff6b6b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Modular AI Architecture</h1>
+        
+        <div class="status" id="status">Loading diagram...</div>
+        
+        <div class="mermaid" id="diagram">
+            <!-- Diagram will be loaded here -->
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({ startOnLoad: false });
+        
+        async function loadDiagram() {
+            const statusEl = document.getElementById('status');
+            const diagramEl = document.getElementById('diagram');
+            
+            try {
+                const response = await fetch('/static/diagram.mmd');
+                const diagramText = await response.text();
+                
+                diagramEl.textContent = diagramText;
+                await mermaid.run();
+                
+                statusEl.textContent = 'Diagram loaded successfully';
+            } catch (error) {
+                statusEl.textContent = `Error: ${error.message}`;
+                statusEl.classList.add('error');
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', loadDiagram);
+    </script>
+</body>
+</html>
