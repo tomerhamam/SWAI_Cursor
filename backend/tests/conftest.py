@@ -24,5 +24,6 @@ outputs:
   - type: TestOutput
     description: Test output
 dependencies:
-  - OtherModule
+  - name: OtherModule
+    required: true
 """ 
