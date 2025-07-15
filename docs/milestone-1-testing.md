@@ -6,15 +6,20 @@
 ## Pre-Testing Setup
 
 ```bash
-# Ensure backend is running
-cd backend
-source venv/bin/activate
-python -m flask run --debug
+# Ensure virtual environment is activated (venv is in root directory)
+cd /home/thh3/work/SWAI_Cursor
+source .venv/bin/activate
+
+# Start the backend Flask server
+FLASK_APP=backend.api:app python -m flask run --port 5000
 
 # Open a second terminal for testing
-cd backend
-source venv/bin/activate
+# New terminal:
+cd /home/thh3/work/SWAI_Cursor
+source .venv/bin/activate
 ```
+
+**Note**: The Flask app is now located in `backend/api/__init__.py` and must be run from the project root directory.
 
 ## Test Scenarios
 
@@ -26,18 +31,20 @@ source venv/bin/activate
 # Test module listing
 curl -s http://localhost:5000/api/modules | python -m json.tool
 
-# Test graph endpoint
-curl -s http://localhost:5000/api/graph | python -m json.tool
+# Test surrogates endpoint  
+curl -s http://localhost:5000/api/surrogates | python -m json.tool
 
 # Test specific module
 curl -s http://localhost:5000/api/modules/DemoScript | python -m json.tool
 ```
 
 **Expected Results:**
-- [ ] `/api/modules` returns array of module objects
-- [ ] `/api/graph` returns nodes and edges structure
+- [ ] `/api/modules` returns object with module data (9 modules: DemoScript, FileWatcher, GraphBuilder, etc.)
+- [ ] `/api/surrogates` returns array of available surrogate types
 - [ ] Individual module endpoints return complete module data
 - [ ] No 500 errors or timeouts
+
+**Note**: The `/api/graph` endpoint is not yet implemented in Phase 2. It will be added in the next development phase.
 
 ### 2. Module CRUD Operations (10 minutes)
 
@@ -246,7 +253,7 @@ After successful completion:
 
 ---
 
-**Testing completed by**: _______________  
-**Date**: _______________  
-**Issues found**: _______________  
-**Ready for Milestone 2**: [ ] Yes [ ] No 
+**Testing completed by**: ___Tomer
+**Date**: __15.07.2025_____________  
+**Issues found**: ___setting and location of files - leftovers from DC3 -  fixes____________  
+**Ready for Milestone 2**: [ X] Yes [ ] No 

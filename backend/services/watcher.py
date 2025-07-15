@@ -15,8 +15,8 @@ from typing import Set
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent, FileCreatedEvent, FileDeletedEvent
 
-from loader import load_modules
-from graph_builder import generate_diagram_file, generate_module_metadata
+from backend.services.loader import load_modules
+from backend.services.graph_builder import generate_diagram_file, generate_module_metadata
 
 
 # Set up logging

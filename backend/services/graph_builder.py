@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from typing import List, Dict, Set
 
-from loader import load_modules, ModuleNode, ModuleStatus
+from backend.services.loader import load_modules, ModuleNode, ModuleStatus
 
 
 def sanitize_node_id(name: str) -> str:
