@@ -84,7 +84,7 @@ interface Props {
   module: Module
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 defineEmits<{
   close: []
 }>()
