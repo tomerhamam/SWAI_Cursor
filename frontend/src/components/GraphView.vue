@@ -1,21 +1,53 @@
 <template>
-  <div ref="graphContainer" class="graph-view" />
-  <div v-if="isLoading" class="loading-overlay">
-    <div class="loading-spinner"></div>
-    <p>Loading modules...</p>
-  </div>
-  <div v-if="error" class="error-overlay">
-    <p>{{ error }}</p>
-    <button @click="retryLoad">Retry</button>
+  <div class="graph-container">
+    <!-- Status Filter -->
+    <div class="filter-bar">
+      <StatusFilter 
+        :modules="moduleStore.modules"
+        @filter-change="handleFilterChange"
+      />
+    </div>
+    
+    <!-- Graph View -->
+    <div ref="graphContainer" class="graph-view" @contextmenu.prevent />
+    
+    <div v-if="isLoading" class="loading-overlay">
+      <div class="loading-spinner"></div>
+      <p>Loading modules...</p>
+    </div>
+    <div v-if="error" class="error-overlay">
+      <p>{{ error }}</p>
+      <button @click="retryLoad">Retry</button>
+    </div>
+    
+    <!-- Context Menu -->
+    <ContextMenu
+      :visible="contextMenu.visible"
+      :position="contextMenu.position"
+      :context-type="contextMenu.type"
+      :node-id="contextMenu.nodeId"
+      @menu-action="handleContextMenuAction"
+      @close="closeContextMenu"
+    />
+    
+    <!-- Module Creation Dialog -->
+    <ModuleCreationDialog
+      :visible="showCreateDialog"
+      @close="closeCreateDialog"
+      @submit="handleCreateModule"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed, reactive } from 'vue'
 import { Network } from 'vis-network/standalone/esm/vis-network'
 import type { Data, Options, Node, Edge } from 'vis-network/standalone/esm/vis-network'
 import { useModuleStore } from '../stores/moduleStore'
 import type { Module } from '../stores/moduleStore'
+import ContextMenu from './ContextMenu.vue'
+import ModuleCreationDialog from './ModuleCreationDialog.vue'
+import StatusFilter from './StatusFilter.vue'
 
 const moduleStore = useModuleStore()
 const graphContainer = ref<HTMLElement>()
@@ -24,9 +56,29 @@ let network: Network | null = null
 const isLoading = computed(() => moduleStore.isLoading)
 const error = computed(() => moduleStore.error)
 
+// Context menu state
+const contextMenu = reactive({
+  visible: false,
+  position: { x: 0, y: 0 },
+  type: 'empty' as 'empty' | 'node',
+  nodeId: undefined as string | undefined
+})
+
+// Dialog state
+const showCreateDialog = ref(false)
+
+// Filter state
+const statusFilter = ref<Set<Module['status']>>(new Set())
+
 // Convert modules to vis.js nodes
 const createNodes = (modules: Record<string, Module>): Node[] => {
-  return Object.entries(modules).map(([id, module]) => ({
+  return Object.entries(modules)
+    .filter(([id, module]) => {
+      // Apply status filter
+      if (statusFilter.value.size === 0) return true
+      return statusFilter.value.has(module.status)
+    })
+    .map(([id, module]) => ({
     id,
     label: module.name,
     title: `${module.name}\n${module.description}\nStatus: ${module.status}`,
@@ -175,6 +227,34 @@ const initializeNetwork = () => {
     }
   })
 
+  // Handle right-click context menu
+  network.on('oncontext', (params) => {
+    // Get the canvas position
+    const canvasPosition = network.canvasToDOM(params.pointer.canvas)
+    
+    contextMenu.position = {
+      x: canvasPosition.x,
+      y: canvasPosition.y
+    }
+    
+    if (params.nodes.length > 0) {
+      // Right-clicked on a node
+      contextMenu.type = 'node'
+      contextMenu.nodeId = params.nodes[0] as string
+    } else {
+      // Right-clicked on empty space
+      contextMenu.type = 'empty'
+      contextMenu.nodeId = undefined
+    }
+    
+    contextMenu.visible = true
+  })
+
+  // Close context menu on any other click
+  network.on('click', () => {
+    closeContextMenu()
+  })
+
   // Fit network to viewport
   setTimeout(() => {
     network?.fit()
@@ -200,6 +280,59 @@ const updateNetwork = () => {
 const retryLoad = () => {
   moduleStore.clearError()
   moduleStore.loadModules()
+}
+
+// Context menu handlers
+const closeContextMenu = () => {
+  contextMenu.visible = false
+}
+
+const handleContextMenuAction = async (action: string, nodeId?: string) => {
+  switch (action) {
+    case 'add-module':
+      showCreateDialog.value = true
+      break
+    case 'edit-module':
+      if (nodeId) {
+        moduleStore.selectModule(nodeId)
+      }
+      break
+    case 'delete-module':
+      if (nodeId && confirm(`Delete module "${nodeId}"?`)) {
+        try {
+          await moduleStore.deleteModule(nodeId)
+        } catch (error) {
+          console.error('Failed to delete module:', error)
+        }
+      }
+      break
+    case 'view-details':
+      if (nodeId) {
+        moduleStore.selectModule(nodeId)
+      }
+      break
+    default:
+      console.log('Unhandled action:', action)
+  }
+}
+
+// Dialog handlers
+const closeCreateDialog = () => {
+  showCreateDialog.value = false
+}
+
+const handleCreateModule = async (moduleData: Omit<Module, 'name'> & { name: string }) => {
+  try {
+    await moduleStore.createModule(moduleData)
+    showCreateDialog.value = false
+  } catch (error) {
+    console.error('Failed to create module:', error)
+  }
+}
+
+// Filter handlers
+const handleFilterChange = (statuses: Set<Module['status']>) => {
+  statusFilter.value = statuses
 }
 
 // Watch for module changes
@@ -234,9 +367,23 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.graph-view {
+.graph-container {
   width: 100%;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-bar {
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 12px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.graph-view {
+  flex: 1;
+  width: 100%;
   position: relative;
   background: #f8f9fa;
 }
