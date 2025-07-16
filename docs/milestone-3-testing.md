@@ -6,11 +6,11 @@
 ## Pre-Testing Setup
 
 ```bash
-# Start both servers
-cd backend && source venv/bin/activate && python -m flask run --debug &
+# Start both servers (from project root directory)
+python -m flask --app app.py run --debug &
 cd frontend && npm run dev &
 
-# Open browser to http://localhost:5173
+# Open browser to http://localhost:3001
 # Open browser developer tools for monitoring
 ```
 

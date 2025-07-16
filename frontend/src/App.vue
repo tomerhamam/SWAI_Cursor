@@ -8,6 +8,8 @@
     </header>
     
     <main class="app-main">
+      <ModulePalette />
+      
       <div class="graph-container">
         <GraphView />
       </div>
@@ -25,6 +27,7 @@
 import { computed } from 'vue'
 import GraphView from './components/GraphView.vue'
 import ModulePanel from './components/ModulePanel.vue'
+import ModulePalette from './components/ModulePalette.vue'
 import { useModuleStore } from './stores/moduleStore'
 
 const moduleStore = useModuleStore()

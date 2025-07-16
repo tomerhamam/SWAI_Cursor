@@ -42,6 +42,7 @@ const menuItems = computed(() => {
   if (props.contextType === 'empty') {
     return [
       { id: 'add-module', text: 'Add Module', icon: '➕', action: 'add-module' },
+      { id: 'toggle-dependency-mode', text: 'Dependency Mode', icon: '🔗', action: 'toggle-dependency-mode' },
       { id: 'paste', text: 'Paste', icon: '📋', action: 'paste', enabled: false },
     ]
   } else {
@@ -51,7 +52,7 @@ const menuItems = computed(() => {
       { id: 'duplicate', text: 'Duplicate', icon: '📄', action: 'duplicate-module' },
       { id: 'delete', text: 'Delete', icon: '🗑️', action: 'delete-module' },
       { id: 'separator', text: '---', icon: '', action: '' },
-      { id: 'add-dependency', text: 'Add Dependency', icon: '🔗', action: 'add-dependency' },
+      { id: 'start-dependency', text: 'Start Dependency', icon: '🔗', action: 'start-dependency' },
       { id: 'view-details', text: 'View Details', icon: '📊', action: 'view-details' },
     ]
   }

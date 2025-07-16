@@ -9,7 +9,15 @@
     </div>
     
     <!-- Graph View -->
-    <div ref="graphContainer" class="graph-view" @contextmenu.prevent />
+    <div 
+      ref="graphContainer" 
+      class="graph-view" 
+      :class="{ 'drop-active': dropZone.isActive, 'dependency-mode': dependencyMode.isActive }"
+      @contextmenu.prevent 
+      @dragover.prevent="handleDragOver"
+      @drop.prevent="handleDrop"
+      @dragleave="handleDragLeave"
+    />
     
     <div v-if="isLoading" class="loading-overlay">
       <div class="loading-spinner"></div>
@@ -69,6 +77,19 @@ const showCreateDialog = ref(false)
 
 // Filter state
 const statusFilter = ref<Set<Module['status']>>(new Set())
+
+// Drag & drop state
+const dropZone = reactive({
+  isActive: false,
+  position: { x: 0, y: 0 }
+})
+
+// Dependency creation state
+const dependencyMode = reactive({
+  isActive: false,
+  sourceNodeId: null as string | null,
+  previewLine: null as any
+})
 
 // Convert modules to vis.js nodes
 const createNodes = (modules: Record<string, Module>): Node[] => {
@@ -212,9 +233,20 @@ const initializeNetwork = () => {
   network.on('click', (params) => {
     if (params.nodes.length > 0) {
       const nodeId = params.nodes[0] as string
-      moduleStore.selectModule(nodeId)
+      
+      // Handle dependency creation mode
+      if (dependencyMode.isActive) {
+        handleNodeClickForDependency(nodeId)
+      } else {
+        moduleStore.selectModule(nodeId)
+      }
     } else {
       moduleStore.clearSelection()
+      // Exit dependency mode if clicking empty space
+      if (dependencyMode.isActive) {
+        dependencyMode.isActive = false
+        dependencyMode.sourceNodeId = null
+      }
     }
   })
 
@@ -292,6 +324,16 @@ const handleContextMenuAction = async (action: string, nodeId?: string) => {
     case 'add-module':
       showCreateDialog.value = true
       break
+    case 'toggle-dependency-mode':
+      toggleDependencyMode()
+      break
+    case 'start-dependency':
+      if (nodeId) {
+        dependencyMode.isActive = true
+        dependencyMode.sourceNodeId = nodeId
+        console.log('Dependency mode started from:', nodeId)
+      }
+      break
     case 'edit-module':
       if (nodeId) {
         moduleStore.selectModule(nodeId)
@@ -333,6 +375,110 @@ const handleCreateModule = async (moduleData: Omit<Module, 'name'> & { name: str
 // Filter handlers
 const handleFilterChange = (statuses: Set<Module['status']>) => {
   statusFilter.value = statuses
+}
+
+// Drag & drop handlers
+const handleDragOver = (event: DragEvent) => {
+  event.preventDefault()
+  dropZone.isActive = true
+  
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'copy'
+  }
+}
+
+const handleDragLeave = (event: DragEvent) => {
+  // Only deactivate if leaving the graph container entirely
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  if (
+    event.clientX < rect.left || 
+    event.clientX > rect.right || 
+    event.clientY < rect.top || 
+    event.clientY > rect.bottom
+  ) {
+    dropZone.isActive = false
+  }
+}
+
+const handleDrop = async (event: DragEvent) => {
+  event.preventDefault()
+  dropZone.isActive = false
+  
+  if (!event.dataTransfer) return
+  
+  try {
+    const templateData = JSON.parse(event.dataTransfer.getData('application/json'))
+    
+    // Generate a unique module name based on the template
+    const timestamp = Date.now().toString().slice(-4)
+    const moduleName = `${templateData.name.replace(/\s+/g, '')}${timestamp}`
+    
+    // Create module with template data
+    const moduleData = {
+      name: moduleName,
+      description: templateData.description,
+      status: templateData.defaultData.status,
+      version: templateData.defaultData.version,
+      dependencies: []
+    }
+    
+    await moduleStore.createModule(moduleData)
+    
+    // If we have a network instance, try to position the new node
+    if (network) {
+      // Convert DOM coordinates to canvas coordinates
+      const canvasPosition = network.DOMtoCanvas({
+        x: event.offsetX,
+        y: event.offsetY
+      })
+      
+      // Position the node (this would require custom positioning logic)
+      console.log('Module created at position:', canvasPosition)
+    }
+    
+  } catch (error) {
+    console.error('Failed to create module from drop:', error)
+  }
+}
+
+// Dependency creation handlers
+const toggleDependencyMode = () => {
+  dependencyMode.isActive = !dependencyMode.isActive
+  dependencyMode.sourceNodeId = null
+  if (dependencyMode.previewLine) {
+    // Clear any preview line
+    dependencyMode.previewLine = null
+  }
+}
+
+const handleNodeClickForDependency = (nodeId: string) => {
+  if (!dependencyMode.isActive) return
+  
+  if (!dependencyMode.sourceNodeId) {
+    // Select source node
+    dependencyMode.sourceNodeId = nodeId
+    console.log('Dependency source selected:', nodeId)
+  } else if (dependencyMode.sourceNodeId !== nodeId) {
+    // Create dependency between source and target
+    createDependency(dependencyMode.sourceNodeId, nodeId)
+    dependencyMode.sourceNodeId = null
+  }
+}
+
+const createDependency = async (sourceId: string, targetId: string) => {
+  try {
+    // Get the target module and add the source as a dependency
+    const targetModule = moduleStore.modules[targetId]
+    if (targetModule) {
+      const updatedDependencies = [...(targetModule.dependencies || []), sourceId]
+      await moduleStore.updateModule(targetId, { 
+        dependencies: updatedDependencies 
+      })
+      console.log(`Created dependency: ${sourceId} -> ${targetId}`)
+    }
+  } catch (error) {
+    console.error('Failed to create dependency:', error)
+  }
 }
 
 // Watch for module changes
@@ -386,6 +532,50 @@ onUnmounted(() => {
   width: 100%;
   position: relative;
   background: #f8f9fa;
+  transition: all 0.2s ease;
+}
+
+.graph-view.drop-active {
+  background: #e8f5e8;
+  border: 2px dashed #27ae60;
+}
+
+.graph-view.dependency-mode {
+  background: #fff3cd;
+  border: 2px dashed #ffc107;
+  cursor: crosshair;
+}
+
+.graph-view.drop-active::after {
+  content: "Drop module here";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(39, 174, 96, 0.9);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 16px;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.graph-view.dependency-mode::after {
+  content: "Dependency Mode: Click two nodes to connect them";
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 193, 7, 0.9);
+  color: #856404;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 14px;
+  pointer-events: none;
+  z-index: 100;
 }
 
 .loading-overlay,
