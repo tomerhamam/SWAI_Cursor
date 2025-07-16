@@ -46,3 +46,26 @@ cd frontend && npm run dev &
 - Backend logic is in `backend/` but main Flask app is in root
 - Virtual environment `.venv/` is in project root
 - Frontend configured for port 3001 via vite.config.ts proxy setup
+
+## Testing Improvements - IMPLEMENTED
+
+**Issue**: Critical bugs like no diagram and 405 errors escaped manual testing.
+
+**Root Cause**:
+- Manual testing relied on curl and browser inspection only.
+- No automated E2E tests.
+- Server startup issues not caught.
+
+**Solutions Implemented**:
+- Added Playwright for browser automation and E2E testing.
+- Generated milestone-specific test scripts.
+- Updated milestone testing docs with automated tests.
+- Improved server startup script to handle conflicts.
+
+**New Protocol**:
+- Run Playwright tests before milestone completion.
+- Use context7 for library docs if needed.
+- Always verify API responses in tests.
+
+**Date**: July 16, 2025
+**Status**: IMPLEMENTED

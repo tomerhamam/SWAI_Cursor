@@ -112,12 +112,13 @@ const createNodes = (modules: Record<string, Module>): Node[] => {
     borderWidth: 2,
     borderWidthSelected: 3,
     shape: 'box',
-    margin: 10,
+    margin: { top: 10, right: 10, bottom: 10, left: 10 },
     chosen: {
       node: (values: any) => {
         values.borderWidth = 4
         values.color = '#4a90e2'
-      }
+      },
+      label: false
     }
   }))
 }
@@ -137,6 +138,7 @@ const createEdges = (modules: Record<string, Module>): Edge[] => {
             color: '#666',
             width: 2,
             smooth: {
+              enabled: true,
               type: 'cubicBezier',
               forceDirection: 'horizontal',
               roundness: 0.4
@@ -164,11 +166,29 @@ const getNodeColor = (status: Module['status']): string => {
 }
 
 const initializeNetwork = () => {
-  if (!graphContainer.value) return
+  if (!graphContainer.value) {
+    console.error('GraphView: Container not found')
+    return
+  }
+
+  // Ensure container has dimensions
+  const containerRect = graphContainer.value.getBoundingClientRect()
+  console.log('GraphView: Container dimensions:', containerRect)
+  console.log('GraphView: Container width/height:', containerRect.width, 'x', containerRect.height)
+  
+  if (containerRect.width === 0 || containerRect.height === 0) {
+    console.warn('GraphView: Container has zero dimensions, retrying...')
+    setTimeout(initializeNetwork, 100)
+    return
+  }
 
   const modules = moduleStore.modules
+  console.log('GraphView: Initializing with modules:', Object.keys(modules).length)
+  
   const nodes = createNodes(modules)
   const edges = createEdges(modules)
+
+  console.log('GraphView: Created nodes:', nodes.length, 'edges:', edges.length)
 
   const data: Data = { nodes, edges }
   
@@ -208,7 +228,7 @@ const initializeNetwork = () => {
         color: '#2c3e50'
       },
       shape: 'box',
-      margin: 10
+      margin: { top: 10, right: 10, bottom: 10, left: 10 }
     },
     edges: {
       color: '#7f8c8d',
@@ -227,70 +247,89 @@ const initializeNetwork = () => {
     }
   }
 
-  network = new Network(graphContainer.value, data, options)
+  try {
+    network = new Network(graphContainer.value, data, options)
+    console.log('GraphView: Network created successfully')
 
-  // Handle node selection
-  network.on('click', (params) => {
-    if (params.nodes.length > 0) {
-      const nodeId = params.nodes[0] as string
-      
-      // Handle dependency creation mode
-      if (dependencyMode.isActive) {
-        handleNodeClickForDependency(nodeId)
+    // Handle node selection
+    network.on('click', (params) => {
+      if (params.nodes.length > 0) {
+        const nodeId = params.nodes[0] as string
+        
+        // Handle dependency creation mode
+        if (dependencyMode.isActive) {
+          handleNodeClickForDependency(nodeId)
+        } else {
+          moduleStore.selectModule(nodeId)
+        }
       } else {
-        moduleStore.selectModule(nodeId)
+        moduleStore.clearSelection()
+        // Exit dependency mode if clicking empty space
+        if (dependencyMode.isActive) {
+          dependencyMode.isActive = false
+          dependencyMode.sourceNodeId = null
+        }
       }
-    } else {
-      moduleStore.clearSelection()
-      // Exit dependency mode if clicking empty space
-      if (dependencyMode.isActive) {
-        dependencyMode.isActive = false
-        dependencyMode.sourceNodeId = null
+    })
+
+    // Handle double click for future expansion
+    network.on('doubleClick', (params) => {
+      if (params.nodes.length > 0) {
+        const nodeId = params.nodes[0] as string
+        console.log('Double clicked node:', nodeId)
+        // Future: Expand/collapse or edit functionality
       }
-    }
-  })
+    })
 
-  // Handle double click for future expansion
-  network.on('doubleClick', (params) => {
-    if (params.nodes.length > 0) {
-      const nodeId = params.nodes[0] as string
-      console.log('Double clicked node:', nodeId)
-      // Future: Expand/collapse or edit functionality
-    }
-  })
+    // Handle right-click context menu
+    network.on('oncontext', (params) => {
+      // Get the canvas position
+      const canvasPosition = network.canvasToDOM(params.pointer.canvas)
+      
+      contextMenu.position = {
+        x: canvasPosition.x,
+        y: canvasPosition.y
+      }
+      
+      if (params.nodes.length > 0) {
+        // Right-clicked on a node
+        contextMenu.type = 'node'
+        contextMenu.nodeId = params.nodes[0] as string
+      } else {
+        // Right-clicked on empty space
+        contextMenu.type = 'empty'
+        contextMenu.nodeId = undefined
+      }
+      
+      contextMenu.visible = true
+    })
 
-  // Handle right-click context menu
-  network.on('oncontext', (params) => {
-    // Get the canvas position
-    const canvasPosition = network.canvasToDOM(params.pointer.canvas)
-    
-    contextMenu.position = {
-      x: canvasPosition.x,
-      y: canvasPosition.y
-    }
-    
-    if (params.nodes.length > 0) {
-      // Right-clicked on a node
-      contextMenu.type = 'node'
-      contextMenu.nodeId = params.nodes[0] as string
-    } else {
-      // Right-clicked on empty space
-      contextMenu.type = 'empty'
-      contextMenu.nodeId = undefined
-    }
-    
-    contextMenu.visible = true
-  })
+    // Close context menu on any other click
+    network.on('click', () => {
+      closeContextMenu()
+    })
 
-  // Close context menu on any other click
-  network.on('click', () => {
-    closeContextMenu()
-  })
+    // Network stabilized event
+    network.on('stabilized', () => {
+      console.log('GraphView: Network stabilized')
+    })
 
-  // Fit network to viewport
-  setTimeout(() => {
-    network?.fit()
-  }, 100)
+    // Fit network to viewport with delay to ensure proper rendering
+    setTimeout(() => {
+      if (network) {
+        network.fit({
+          animation: {
+            duration: 500,
+            easingFunction: 'easeInOutQuad'
+          }
+        })
+        console.log('GraphView: Network fitted to viewport')
+      }
+    }, 100)
+
+  } catch (error) {
+    console.error('GraphView: Failed to create network:', error)
+  }
 }
 
 const updateNetwork = () => {
@@ -302,11 +341,11 @@ const updateNetwork = () => {
 
   network.setData({ nodes, edges })
   
-  // Maintain current view position
-  const currentSelection = moduleStore.selectedModuleId
-  if (currentSelection) {
-    network.selectNodes([currentSelection])
-  }
+      // Maintain current view position
+    const currentSelection = moduleStore.selectedModuleId
+    if (currentSelection && network) {
+      network.selectNodes([currentSelection])
+    }
 }
 
 const retryLoad = () => {
@@ -501,7 +540,26 @@ watch(() => moduleStore.selectedModuleId, (selectedId) => {
 })
 
 onMounted(() => {
-  initializeNetwork()
+  console.log('GraphView: Component mounted')
+  
+  // Ensure container is ready before initialization
+  setTimeout(() => {
+    // Wait for modules to be loaded before initializing network
+    if (Object.keys(moduleStore.modules).length > 0) {
+      console.log('GraphView: Modules already loaded, initializing network')
+      initializeNetwork()
+    } else {
+      console.log('GraphView: Waiting for modules to load')
+      // Watch for first load
+      const unwatch = watch(() => moduleStore.modules, (newModules) => {
+        if (Object.keys(newModules).length > 0) {
+          console.log('GraphView: Modules loaded, initializing network')
+          initializeNetwork()
+          unwatch()
+        }
+      }, { immediate: true })
+    }
+  }, 50) // Small delay to ensure DOM is fully ready
 })
 
 onUnmounted(() => {
@@ -530,9 +588,46 @@ onUnmounted(() => {
 .graph-view {
   flex: 1;
   width: 100%;
+  height: 100%;
+  min-height: 400px;
   position: relative;
   background: #f8f9fa;
   transition: all 0.2s ease;
+  /* Add diagnostic styling to ensure visibility */
+  border: 2px solid #e0e0e0;
+  min-width: 300px;
+}
+
+/* Ensure vis.js canvas is visible */
+.graph-view canvas {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  z-index: 1 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Ensure vis.js container div is visible */
+.graph-view > div {
+  width: 100% !important;
+  height: 100% !important;
+  position: relative !important;
+}
+
+/* Add diagnostic overlay to show if container is present */
+.graph-view::before {
+  content: "Graph View Container";
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.1);
+  color: #666;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 10;
+  pointer-events: none;
 }
 
 .graph-view.drop-active {
