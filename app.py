@@ -12,8 +12,8 @@ from typing import Dict, Any
 from flask import Flask, jsonify, request, send_from_directory, render_template_string
 from flask.wrappers import Response
 
-from loader import load_modules
-from surrogate import registry
+from backend.services.loader import load_modules
+from backend.services.surrogate import registry
 
 
 # Initialize Flask app
