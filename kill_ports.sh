@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}🧹 SWAI Cursor Port Cleanup${NC}"
 echo "============================"
 
-# Function to kill process on port
+# kill_port terminates the first process found listening on the specified port, displaying status messages for success, failure, or if the port is already free.
 kill_port() {
     local port=$1
     local process_info=$(lsof -i :$port 2>/dev/null | grep LISTEN | awk '{print $2, $1}' | head -1)

@@ -65,7 +65,11 @@ def index():
 
 @app.route('/api/modules')
 def get_modules():
-    """Get list of all modules."""
+    """
+    Return a JSON object containing all loaded AI modules and their attributes.
+    
+    Each module includes its name, description, status, implementation, input and output specifications, and dependencies.
+    """
     if not _modules_loaded:
         load_module_cache()
     
@@ -86,7 +90,14 @@ def get_modules():
 
 @app.route('/api/modules', methods=['POST'])
 def create_module():
-    """Create a new module."""
+    """
+    Handles the creation of a new AI module via a POST request.
+    
+    Validates the incoming JSON payload, ensures required fields are present, sets defaults for optional fields, validates the module schema, and saves the new module as a YAML file. Prevents overwriting existing modules and reloads the module cache after creation.
+    
+    Returns:
+        Response: JSON representation of the created module with HTTP 201 status on success, or an error message with an appropriate HTTP status code on failure.
+    """
     try:
         if not request.is_json:
             return jsonify({'error': 'Request must be JSON'}), 400
@@ -142,7 +153,9 @@ def create_module():
 
 @app.route('/api/surrogates')
 def get_surrogates():
-    """Get list of available surrogates."""
+    """
+    Return a JSON list of all available surrogate types.
+    """
     return jsonify(registry.list_surrogates())
 
 
@@ -215,7 +228,11 @@ def run_surrogate():
 
 @app.route('/api/modules/<module_name>')
 def get_module_details(module_name: str):
-    """Get detailed information about a specific module."""
+    """
+    Return detailed information about a specific module by name as a JSON response.
+    
+    If the module is not found, returns a 404 error with an appropriate message.
+    """
     if not _modules_loaded:
         load_module_cache()
     
@@ -237,7 +254,11 @@ def get_module_details(module_name: str):
 
 @app.route('/api/modules/<module_name>', methods=['PUT'])
 def update_module(module_name: str):
-    """Update an existing module."""
+    """
+    Update an existing module with new data provided in the JSON request body.
+    
+    Validates the input, merges updates with the existing module definition, ensures the module name remains unchanged, validates the updated data, saves it to the YAML file, reloads the module cache, and returns the updated module data as JSON. Returns appropriate error responses for invalid input, validation errors, or if the module does not exist.
+    """
     try:
         if not request.is_json:
             return jsonify({'error': 'Request must be JSON'}), 400
@@ -288,7 +309,12 @@ def update_module(module_name: str):
 
 @app.route('/api/modules/<module_name>', methods=['DELETE'])
 def delete_module(module_name: str):
-    """Delete a module."""
+    """
+    Deletes the specified module by removing its YAML file and updating the module cache.
+    
+    Returns:
+        An empty response with HTTP 204 status on success, or a JSON error message with appropriate HTTP status code if the module is not found or an error occurs.
+    """
     try:
         modules_dir = Path("modules")
         module_file = modules_dir / f"{module_name}.yaml"
@@ -310,7 +336,9 @@ def delete_module(module_name: str):
 
 @app.errorhandler(404)
 def not_found(error):
-    """Handle 404 errors."""
+    """
+    Handles 404 Not Found errors by returning a JSON error response with HTTP status 404.
+    """
     return jsonify({"error": "Not found"}), 404
 
 
