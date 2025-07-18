@@ -8,13 +8,13 @@
 ```bash
 # Build production versions
 cd frontend && npm run build
-cd backend && pip install -r requirements.txt
+cd /home/thh3/work/SWAI_Cursor && pip install -r requirements.txt
 
 # Start production-like environment
-cd backend && python -m flask run --host=0.0.0.0 --port=5000 &
-cd frontend && npm run preview --port=5173 &
+cd /home/thh3/work/SWAI_Cursor && python -m flask --app app.py run --host=0.0.0.0 --port=5000 &
+cd frontend && npm run preview --port=3001 &
 
-# Open browser to http://localhost:5173
+# Open browser to http://localhost:3001
 ```
 
 ## Test Scenarios

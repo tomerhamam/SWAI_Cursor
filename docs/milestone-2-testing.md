@@ -6,16 +6,21 @@
 ## Pre-Testing Setup
 
 ```bash
-# Start backend server
-cd backend
-source venv/bin/activate
-python -m flask run --debug &
+# Option 1: Use automated startup script (recommended)
+cd /home/thh3/work/SWAI_Cursor
+./start_servers.sh
+
+# Option 2: Manual startup
+# Start backend server from project root
+cd /home/thh3/work/SWAI_Cursor
+# If you get "Address already in use" errors, run: ./kill_ports.sh
+python -m flask --app app.py run --debug &
 
 # Start frontend development server
 cd frontend
 npm run dev &
 
-# Open browser to http://localhost:5173
+# Open browser to http://localhost:3001
 ```
 
 ## Test Scenarios
@@ -23,7 +28,7 @@ npm run dev &
 ### 1. Initial Load and Rendering (5 minutes)
 
 **Visual inspection:**
-- Open http://localhost:5173
+- Open http://localhost:3001
 - Observe graph rendering
 
 **Expected Results:**
@@ -262,3 +267,21 @@ After successful completion:
 ### **Next Steps**: Ready for Milestone 3 development
 
 The system now provides a fully functional interactive visualization meeting all Milestone 2 requirements. All 9 modules are properly displayed with their relationships, and users can interact with the graph to explore the modular AI architecture. 
+
+## Automated E2E Testing with Playwright
+
+1. Install Playwright if not already:
+   ```bash
+   npm init playwright@latest
+   ```
+
+2. Run the generated test:
+   ```bash
+   npx playwright test milestone2_e2e_test.spec.ts
+   ```
+
+**Expected Results:**
+- [ ] All assertions pass
+- [ ] Graph renders with nodes
+- [ ] Module creation works without 405 error
+- [ ] No console errors 

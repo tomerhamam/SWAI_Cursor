@@ -12,8 +12,9 @@ from typing import Dict, Any
 from flask import Flask, jsonify, request, send_from_directory, render_template_string
 from flask.wrappers import Response
 
-from backend.services.loader import load_modules
+from backend.services.loader import load_modules, ModuleNode
 from backend.services.surrogate import registry
+import yaml
 
 
 # Initialize Flask app
@@ -81,6 +82,62 @@ def get_modules():
         }
     
     return jsonify(module_data)
+
+
+@app.route('/api/modules', methods=['POST'])
+def create_module():
+    """Create a new module."""
+    try:
+        if not request.is_json:
+            return jsonify({'error': 'Request must be JSON'}), 400
+        
+        module_data = request.get_json()
+        if not module_data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+        
+        # Validate required fields
+        if 'name' not in module_data:
+            return jsonify({'error': 'Module name is required'}), 400
+        
+        # Set defaults for optional fields
+        module_data.setdefault('description', 'Generated module')
+        module_data.setdefault('status', 'placeholder')
+        module_data.setdefault('inputs', [])
+        module_data.setdefault('outputs', [])
+        module_data.setdefault('dependencies', [])
+        
+        # Validate using schema
+        try:
+            module_node = ModuleNode(**module_data)
+        except Exception as e:
+            return jsonify({
+                'error': 'Validation failed',
+                'details': str(e)
+            }), 400
+        
+        # Save module to YAML file
+        modules_dir = Path("modules")
+        modules_dir.mkdir(exist_ok=True)
+        
+        module_file = modules_dir / f"{module_node.name}.yaml"
+        if module_file.exists():
+            return jsonify({'error': f'Module {module_node.name} already exists'}), 409
+        
+        # Convert to plain dict with str values
+        module_dict = module_node.model_dump()
+        if 'status' in module_dict:
+            module_dict['status'] = module_dict['status'].value if hasattr(module_dict['status'], 'value') else str(module_dict['status'])
+        
+        with open(module_file, 'w') as f:
+            yaml.safe_dump(module_dict, f, default_flow_style=False, sort_keys=False)
+        
+        # Reload module cache
+        load_module_cache()
+        
+        return jsonify(module_dict), 201
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/surrogates')
@@ -176,6 +233,79 @@ def get_module_details(module_name: str):
         "outputs": [{"type": out.type, "description": out.description} for out in module.outputs],
         "dependencies": module.dependencies
     })
+
+
+@app.route('/api/modules/<module_name>', methods=['PUT'])
+def update_module(module_name: str):
+    """Update an existing module."""
+    try:
+        if not request.is_json:
+            return jsonify({'error': 'Request must be JSON'}), 400
+        
+        module_data = request.get_json()
+        if not module_data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+        
+        # Check if module exists
+        modules_dir = Path("modules")
+        module_file = modules_dir / f"{module_name}.yaml"
+        if not module_file.exists():
+            return jsonify({'error': f'Module {module_name} not found'}), 404
+        
+        # Load existing module data
+        with open(module_file, 'r') as f:
+            existing_data = yaml.safe_load(f)
+        
+        # Merge with updates (preserve existing data, override with new)
+        existing_data.update(module_data)
+        existing_data['name'] = module_name  # Ensure name doesn't change
+        
+        # Validate updated data
+        try:
+            module_node = ModuleNode(**existing_data)
+        except Exception as e:
+            return jsonify({
+                'error': 'Validation failed',
+                'details': str(e)
+            }), 400
+        
+        # Convert to plain dict with str values
+        module_dict = module_node.model_dump()
+        if 'status' in module_dict:
+            module_dict['status'] = module_dict['status'].value if hasattr(module_dict['status'], 'value') else str(module_dict['status'])
+        
+        with open(module_file, 'w') as f:
+            yaml.safe_dump(module_dict, f, default_flow_style=False, sort_keys=False)
+        
+        # Reload module cache
+        load_module_cache()
+        
+        return jsonify(module_dict), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/modules/<module_name>', methods=['DELETE'])
+def delete_module(module_name: str):
+    """Delete a module."""
+    try:
+        modules_dir = Path("modules")
+        module_file = modules_dir / f"{module_name}.yaml"
+        
+        if not module_file.exists():
+            return jsonify({'error': f'Module {module_name} not found'}), 404
+        
+        # Delete the file
+        module_file.unlink()
+        
+        # Reload module cache
+        load_module_cache()
+        
+        return '', 204
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.errorhandler(404)
