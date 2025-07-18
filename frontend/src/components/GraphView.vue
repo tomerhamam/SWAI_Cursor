@@ -21,11 +21,11 @@
         </button>
         
         <button 
-          @click="toggleLayout"
-          :class="['layout-toggle-btn', { hierarchical: isHierarchicalLayout }]"
-          :title="isHierarchicalLayout ? 'Switch to free layout' : 'Switch to hierarchical layout'"
+          @click="cycleLayout"
+          :class="['layout-toggle-btn', `layout-${layoutMode}`]"
+          :title="getLayoutTooltip()"
         >
-          {{ isHierarchicalLayout ? '📊 Hierarchical' : '🎯 Free Layout' }}
+          {{ getLayoutLabel() }}
         </button>
         <div v-if="moduleStore.hasActiveFilters" class="filter-summary">
           <span class="results-summary">
@@ -47,6 +47,7 @@
       ref="graphContainer" 
       class="graph-view" 
       :class="{ 'drop-active': dropZone.isActive, 'dependency-mode': dependencyMode.isActive }"
+      :data-layout-mode="`${layoutMode} layout`"
       role="application"
       aria-label="Module dependency graph visualization"
       aria-describedby="graph-instructions"
@@ -60,8 +61,11 @@
     
     <!-- Screen reader instructions -->
     <div id="graph-instructions" class="sr-only">
-      Interactive graph showing module dependencies. Use arrow keys to navigate between modules. 
-      Press Enter to select a module, Space to open context menu, or Tab to navigate to controls.
+      Interactive graph showing module dependencies in {{ layoutMode }} layout mode. 
+      {{ layoutMode === 'manual' ? 'Nodes can be precisely positioned without physics.' : 
+         layoutMode === 'physics' ? 'Nodes use dynamic physics-based positioning.' : 
+         'Nodes are arranged in a hierarchical structure.' }}
+      Use arrow keys to navigate between modules. Press Enter to select a module, Space to open context menu, or Tab to navigate to controls.
     </div>
     
     <div v-if="isLoading" class="loading-overlay">
@@ -143,7 +147,7 @@ const contextMenu = reactive({
 const showCreateDialog = ref(false)
 
 // Layout state
-const isHierarchicalLayout = ref(false)  // Start with free layout
+const layoutMode = ref<'manual' | 'physics' | 'hierarchical'>('physics')  // Start with physics layout
 
 // Filter state is now managed in the store
 
@@ -309,7 +313,7 @@ const initializeNetwork = () => {
   const options: Options = {
     layout: {
       hierarchical: {
-        enabled: isHierarchicalLayout.value,
+        enabled: layoutMode.value === 'hierarchical',
         direction: 'LR',
         sortMethod: 'directed',
         levelSeparation: 150,
@@ -318,10 +322,10 @@ const initializeNetwork = () => {
       }
     },
     physics: {
-      enabled: !isHierarchicalLayout.value,
+      enabled: layoutMode.value === 'physics',
       stabilization: {
         enabled: true,
-        iterations: isHierarchicalLayout.value ? 200 : 100,
+        iterations: layoutMode.value === 'hierarchical' ? 200 : (layoutMode.value === 'physics' ? 100 : 0),
         updateInterval: 25
       },
       solver: 'forceAtlas2Based',
@@ -653,12 +657,45 @@ const handleDuplicateModule = async (moduleData: Omit<Module, 'name'> & { name: 
   }
 }
 
-// Layout toggle handler
-const toggleLayout = () => {
-  isHierarchicalLayout.value = !isHierarchicalLayout.value
+// Layout control handlers
+const cycleLayout = () => {
+  switch (layoutMode.value) {
+    case 'manual':
+      layoutMode.value = 'physics'
+      break
+    case 'physics':
+      layoutMode.value = 'hierarchical'
+      break
+    case 'hierarchical':
+      layoutMode.value = 'manual'
+      break
+  }
+  
   // Reinitialize the network with new layout
   if (network) {
     initializeNetwork()
+  }
+}
+
+const getLayoutLabel = () => {
+  switch (layoutMode.value) {
+    case 'manual':
+      return '🎯 Manual'
+    case 'physics':
+      return '🌊 Physics'
+    case 'hierarchical':
+      return '📊 Hierarchical'
+  }
+}
+
+const getLayoutTooltip = () => {
+  switch (layoutMode.value) {
+    case 'manual':
+      return 'Switch to physics layout (dynamic positioning)'
+    case 'physics':
+      return 'Switch to hierarchical layout (structured positioning)'
+    case 'hierarchical':
+      return 'Switch to manual layout (precise positioning)'
   }
 }
 
@@ -920,13 +957,33 @@ onUnmounted(() => {
   background: #f8f9fa;
 }
 
-.layout-toggle-btn.hierarchical {
+.layout-toggle-btn.layout-manual {
+  border-color: #6f42c1;
+  color: #6f42c1;
+  background: #f8f7ff;
+}
+
+.layout-toggle-btn.layout-manual:hover {
+  background: #ede7ff;
+}
+
+.layout-toggle-btn.layout-physics {
+  border-color: #17a2b8;
+  color: #17a2b8;
+  background: #f0feff;
+}
+
+.layout-toggle-btn.layout-physics:hover {
+  background: #d6f8ff;
+}
+
+.layout-toggle-btn.layout-hierarchical {
   border-color: #28a745;
   color: #28a745;
   background: #f8fff9;
 }
 
-.layout-toggle-btn.hierarchical:hover {
+.layout-toggle-btn.layout-hierarchical:hover {
   background: #e8f5e9;
 }
 
@@ -979,19 +1036,20 @@ onUnmounted(() => {
   position: relative !important;
 }
 
-/* Add diagnostic overlay to show if container is present */
+/* Layout mode indicator */
 .graph-view::before {
-  content: "Graph View Container";
+  content: attr(data-layout-mode);
   position: absolute;
   top: 10px;
-  left: 10px;
+  right: 10px;
   background: rgba(0, 0, 0, 0.1);
   color: #666;
   padding: 4px 8px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11px;
   z-index: 10;
   pointer-events: none;
+  text-transform: capitalize;
 }
 
 .graph-view.drop-active {
