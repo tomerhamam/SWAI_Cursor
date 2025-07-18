@@ -1,22 +1,19 @@
-name: Claude PR Assistant
+name: Claude Code Review
 
 on:
+  pull_request:
+    types: [opened]  # Automatic review when PR is created
   issue_comment:
-    types: [created]
+    types: [created]  # @claude mentions in PR comments
   pull_request_review_comment:
-    types: [created]
-  issues:
-    types: [opened, assigned]
-  pull_request_review:
-    types: [submitted]
+    types: [created]  # @claude mentions in review comments
 
 jobs:
-  claude-code-action:
+  claude-code-review:
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && contains(github.event.issue.body, '@claude'))
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -28,20 +25,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-
-      - name: Run Claude PR Action
+      - name: Run Claude Code Review
         uses: anthropics/claude-code-action@beta
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # Or use OAuth token instead:
-          # claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           timeout_minutes: "60"
-          # Optional: Restrict network access to specific domains only
-          # experimental_allowed_domains: |
-          #   .anthropic.com
-          #   .github.com
-          #   api.github.com
-          #   .githubusercontent.com
-          #   bun.sh
-          #   registry.npmjs.org
-          #   .blob.core.windows.net
