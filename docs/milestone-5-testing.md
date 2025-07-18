@@ -7,10 +7,11 @@
 
 ```bash
 # Start both servers
-cd backend && source venv/bin/activate && python -m flask run --debug &
+# From the project root, start the backend:
+python -m flask --app app.py run --debug &
 cd frontend && npm run dev &
 
-# Open browser to http://localhost:5173
+# Open browser to http://localhost:3001
 # Have keyboard shortcuts reference available
 ```
 

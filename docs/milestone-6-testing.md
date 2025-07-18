@@ -8,13 +8,13 @@
 ```bash
 # Build production versions
 cd frontend && npm run build
-cd backend && pip install -r requirements.txt
+pip install -r requirements.txt
 
 # Start production-like environment
-cd backend && python -m flask run --host=0.0.0.0 --port=5000 &
-cd frontend && npm run preview --port=5173 &
+python -m flask --app app.py run --host=0.0.0.0 --port=5000 &
+cd frontend && npm run preview --port=3001 &
 
-# Open browser to http://localhost:5173
+# Open browser to http://localhost:3001
 ```
 
 ## Test Scenarios
