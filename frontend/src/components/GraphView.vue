@@ -19,6 +19,14 @@
         >
           {{ moduleStore.isMultiSelectMode ? '✓ Multi-Select' : '☐ Multi-Select' }}
         </button>
+        
+        <button 
+          @click="toggleLayout"
+          :class="['layout-toggle-btn', { hierarchical: isHierarchicalLayout }]"
+          :title="isHierarchicalLayout ? 'Switch to free layout' : 'Switch to hierarchical layout'"
+        >
+          {{ isHierarchicalLayout ? '📊 Hierarchical' : '🎯 Free Layout' }}
+        </button>
         <div v-if="moduleStore.hasActiveFilters" class="filter-summary">
           <span class="results-summary">
             {{ moduleStore.searchResultsCount }} of {{ moduleStore.moduleCount }} modules
@@ -133,6 +141,9 @@ const contextMenu = reactive({
 
 // Dialog state
 const showCreateDialog = ref(false)
+
+// Layout state
+const isHierarchicalLayout = ref(false)  // Start with free layout
 
 // Filter state is now managed in the store
 
@@ -298,7 +309,7 @@ const initializeNetwork = () => {
   const options: Options = {
     layout: {
       hierarchical: {
-        enabled: true,
+        enabled: isHierarchicalLayout.value,
         direction: 'LR',
         sortMethod: 'directed',
         levelSeparation: 150,
@@ -307,13 +318,28 @@ const initializeNetwork = () => {
       }
     },
     physics: {
-      enabled: false
+      enabled: !isHierarchicalLayout.value,
+      stabilization: {
+        enabled: true,
+        iterations: isHierarchicalLayout.value ? 200 : 100,
+        updateInterval: 25
+      },
+      solver: 'forceAtlas2Based',
+      forceAtlas2Based: {
+        gravitationalConstant: -50,
+        centralGravity: 0.01,
+        springLength: 200,
+        springConstant: 0.08,
+        damping: 0.4
+      }
     },
     interaction: {
       dragNodes: true,
       dragView: true,
       zoomView: true,
-      selectConnectedEdges: false
+      selectConnectedEdges: false,
+      multiselect: false,
+      tooltipDelay: 300
     },
     nodes: {
       borderWidth: 2,
@@ -627,6 +653,15 @@ const handleDuplicateModule = async (moduleData: Omit<Module, 'name'> & { name: 
   }
 }
 
+// Layout toggle handler
+const toggleLayout = () => {
+  isHierarchicalLayout.value = !isHierarchicalLayout.value
+  // Reinitialize the network with new layout
+  if (network) {
+    initializeNetwork()
+  }
+}
+
 // Drag & drop handlers
 const handleDragOver = (event: DragEvent) => {
   event.preventDefault()
@@ -864,6 +899,35 @@ onUnmounted(() => {
 
 .multi-select-btn.active:hover {
   background: #bbdefb;
+}
+
+.layout-toggle-btn {
+  padding: 8px 16px;
+  border: 2px solid #e1e5e9;
+  border-radius: 6px;
+  background: white;
+  color: #666;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.layout-toggle-btn:hover {
+  border-color: #4a90e2;
+  color: #4a90e2;
+  background: #f8f9fa;
+}
+
+.layout-toggle-btn.hierarchical {
+  border-color: #28a745;
+  color: #28a745;
+  background: #f8fff9;
+}
+
+.layout-toggle-btn.hierarchical:hover {
+  background: #e8f5e9;
 }
 
 /* Responsive design for filter bar */
