@@ -192,53 +192,72 @@ const searchSuggestions = computed(() => {
 
   const query = searchQuery.value.toLowerCase()
   const suggestions: SearchSuggestion[] = []
+  const seen = new Set<string>() // Track unique combinations for efficiency
   
   // Search in module names
   Object.values(moduleStore.modules).forEach(module => {
     if (module.name.toLowerCase().includes(query)) {
-      suggestions.push({
-        id: `module-${module.name}`,
-        text: module.name,
-        highlightedText: highlightText(module.name, query),
-        type: 'module',
-        icon: getModuleIcon(module.status),
-        module
-      })
+      const key = `module:${module.name}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        suggestions.push({
+          id: `module-${module.name}`,
+          text: module.name,
+          highlightedText: highlightText(module.name, query),
+          type: 'module',
+          icon: getModuleIcon(module.status),
+          module
+        })
+      }
     }
     
     // Search in descriptions
     if (module.description.toLowerCase().includes(query)) {
-      suggestions.push({
-        id: `desc-${module.name}`,
-        text: module.description,
-        highlightedText: highlightText(module.description, query),
-        type: 'description',
-        icon: '📝',
-        module
-      })
+      const key = `description:${module.description}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        suggestions.push({
+          id: `desc-${module.name}`,
+          text: module.description,
+          highlightedText: highlightText(module.description, query),
+          type: 'description',
+          icon: '📝',
+          module
+        })
+      }
     }
     
     // Search in dependencies
     module.dependencies?.forEach(dep => {
       if (dep.toLowerCase().includes(query)) {
-        suggestions.push({
-          id: `dep-${module.name}-${dep}`,
-          text: dep,
-          highlightedText: highlightText(dep, query),
-          type: 'dependency',
-          icon: '🔗',
-          module
-        })
+        const key = `dependency:${dep}`
+        if (!seen.has(key)) {
+          seen.add(key)
+          suggestions.push({
+            id: `dep-${module.name}-${dep}`,
+            text: dep,
+            highlightedText: highlightText(dep, query),
+            type: 'dependency',
+            icon: '🔗',
+            module
+          })
+        }
       }
     })
   })
   
-  // Remove duplicates and limit results
-  const uniqueSuggestions = suggestions.filter((suggestion, index, self) => 
-    index === self.findIndex(s => s.text === suggestion.text && s.type === suggestion.type)
-  )
+  // Sort by relevance (exact matches first, then partial matches)
+  const sortedSuggestions = suggestions.sort((a, b) => {
+    const aExact = a.text.toLowerCase() === query
+    const bExact = b.text.toLowerCase() === query
+    if (aExact && !bExact) return -1
+    if (!aExact && bExact) return 1
+    
+    // Sort by text length (shorter matches are likely more relevant)
+    return a.text.length - b.text.length
+  })
   
-  return uniqueSuggestions.slice(0, 8)
+  return sortedSuggestions.slice(0, 8)
 })
 
 const filteredModulesCount = computed(() => {

@@ -287,12 +287,16 @@ export const useModuleStore = defineStore('module', () => {
   function toggleModuleSelection(moduleId: string) {
     if (selectedModuleIds.value.has(moduleId)) {
       selectedModuleIds.value.delete(moduleId)
+      // Clear single selection when deselecting in single-select mode
+      if (!isMultiSelectMode.value && selectedModuleId.value === moduleId) {
+        selectedModuleId.value = null
+      }
     } else {
       selectedModuleIds.value.add(moduleId)
-    }
-    // Update single selection when not in multi-select mode
-    if (!isMultiSelectMode.value && selectedModuleIds.value.has(moduleId)) {
-      selectedModuleId.value = moduleId
+      // Update single selection when not in multi-select mode
+      if (!isMultiSelectMode.value) {
+        selectedModuleId.value = moduleId
+      }
     }
   }
 
@@ -335,16 +339,33 @@ export const useModuleStore = defineStore('module', () => {
       }
     })
 
-    try {
-      await Promise.all(updatePromises)
-      // Clear selections after successful bulk update
-      clearAllSelections()
-      disableMultiSelectMode()
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Some modules failed to update'
+    const results = await Promise.allSettled(updatePromises)
+    const failures = results.filter(result => result.status === 'rejected')
+    
+    if (failures.length > 0) {
+      const failureCount = failures.length
+      const successCount = results.length - failureCount
+      const errorMessage = `${failureCount} of ${results.length} modules failed to update${successCount > 0 ? ` (${successCount} updated successfully)` : ''}`
       error.value = errorMessage
+      
+      // Only clear selections if at least some updates succeeded
+      if (successCount > 0) {
+        // Remove successfully updated modules from selection
+        const failedModuleNames = failures.map((_, index) => {
+          const originalIndex = results.findIndex(result => result === failures[index])
+          return selectedModules.value[originalIndex]?.name
+        }).filter(Boolean)
+        
+        // Keep only failed modules selected for retry
+        selectedModuleIds.value = new Set(failedModuleNames)
+      }
+      
       throw new Error(errorMessage)
     }
+    
+    // All updates succeeded
+    clearAllSelections()
+    disableMultiSelectMode()
   }
 
   async function bulkDeleteModules() {
@@ -364,16 +385,33 @@ export const useModuleStore = defineStore('module', () => {
       }
     })
 
-    try {
-      await Promise.all(deletePromises)
-      // Clear selections after successful bulk delete
-      clearAllSelections()
-      disableMultiSelectMode()
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Some modules failed to delete'
+    const results = await Promise.allSettled(deletePromises)
+    const failures = results.filter(result => result.status === 'rejected')
+    
+    if (failures.length > 0) {
+      const failureCount = failures.length
+      const successCount = results.length - failureCount
+      const errorMessage = `${failureCount} of ${results.length} modules failed to delete${successCount > 0 ? ` (${successCount} deleted successfully)` : ''}`
       error.value = errorMessage
+      
+      // Only clear selections if at least some deletions succeeded
+      if (successCount > 0) {
+        // Remove successfully deleted modules from selection
+        const failedModuleNames = failures.map((_, index) => {
+          const originalIndex = results.findIndex(result => result === failures[index])
+          return modulesToDelete[originalIndex]?.name
+        }).filter(Boolean)
+        
+        // Keep only failed modules selected for retry
+        selectedModuleIds.value = new Set(failedModuleNames)
+      }
+      
       throw new Error(errorMessage)
     }
+    
+    // All deletions succeeded
+    clearAllSelections()
+    disableMultiSelectMode()
   }
 
   return {

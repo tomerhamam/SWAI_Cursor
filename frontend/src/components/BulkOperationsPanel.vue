@@ -197,11 +197,12 @@ const updateStatus = async (newStatus: Module['status']) => {
     }, 1500)
   } catch (error) {
     console.error('Bulk update failed:', error)
-    updateMessage.value = 'Update failed. Some modules may not have been updated.'
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+    updateMessage.value = `Update failed: ${errorMessage}. Please try again or contact support if the problem persists.`
     setTimeout(() => {
       isUpdating.value = false
       updateMessage.value = ''
-    }, 3000)
+    }, 5000) // Longer timeout for error messages
   }
 }
 

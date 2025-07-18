@@ -162,6 +162,17 @@ interface SavedSearch {
   lastUsed: Date
 }
 
+interface SavedSearchData {
+  id: string
+  name: string
+  query: string
+  statusFilters: string[]
+  searchFilters: SearchFilter[]
+  resultCount: number
+  createdAt: string // ISO string when stored
+  lastUsed: string   // ISO string when stored
+}
+
 const moduleStore = useModuleStore()
 
 // Reactive state
@@ -363,7 +374,7 @@ const loadFromPersistentStorage = () => {
     const saved = localStorage.getItem('moduleSavedSearches')
     if (saved) {
       const parsed = JSON.parse(saved)
-      savedSearches.value = parsed.map((search: any) => ({
+      savedSearches.value = parsed.map((search: SavedSearchData) => ({
         ...search,
         createdAt: new Date(search.createdAt),
         lastUsed: new Date(search.lastUsed)
