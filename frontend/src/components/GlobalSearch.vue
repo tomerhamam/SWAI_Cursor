@@ -24,6 +24,26 @@
             ×
           </button>
         </div>
+        
+        <button 
+          @click="toggleSavedSearches"
+          class="saved-searches-toggle"
+          :class="{ active: showSavedSearches }"
+          aria-label="Toggle saved searches"
+          title="Saved Searches"
+        >
+          📚
+        </button>
+        
+        <button 
+          @click="exportFilteredData"
+          class="export-toggle"
+          :disabled="filteredModulesCount === 0"
+          aria-label="Export filtered data"
+          title="Export filtered modules"
+        >
+          📤
+        </button>
       </div>
       
       <!-- Search suggestions dropdown -->
@@ -82,6 +102,16 @@
           <span>No results found for "{{ searchQuery }}"</span>
         </div>
       </div>
+      
+      <!-- Saved Searches Dropdown -->
+      <div 
+        v-if="showSavedSearches"
+        class="saved-searches-dropdown"
+        role="dialog"
+        aria-label="Saved searches"
+      >
+        <SavedSearches />
+      </div>
     </div>
     
     <!-- Search filters -->
@@ -111,6 +141,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useModuleStore } from '../stores/moduleStore'
 import type { Module } from '../stores/moduleStore'
+import SavedSearches from './SavedSearches.vue'
 
 interface SearchSuggestion {
   id: string
@@ -133,6 +164,7 @@ const moduleStore = useModuleStore()
 const searchQuery = ref('')
 const searchInput = ref<HTMLInputElement>()
 const showSuggestions = ref(false)
+const showSavedSearches = ref(false)
 const highlightedIndex = ref(-1)
 const recentSearches = ref<string[]>([])
 const activeFilters = ref<SearchFilter[]>([])
@@ -356,6 +388,47 @@ const emitSearchChange = () => {
   })
 }
 
+const toggleSavedSearches = () => {
+  showSavedSearches.value = !showSavedSearches.value
+  if (showSavedSearches.value) {
+    showSuggestions.value = false
+  }
+}
+
+const exportFilteredData = () => {
+  const filteredData = moduleStore.filteredModules.map(module => ({
+    name: module.name,
+    description: module.description,
+    status: module.status,
+    version: module.version,
+    inputs: module.inputs,
+    outputs: module.outputs,
+    dependencies: module.dependencies,
+    file_path: module.file_path
+  }))
+  
+  const exportData = {
+    exportedAt: new Date().toISOString(),
+    searchQuery: searchQuery.value,
+    statusFilters: Array.from(moduleStore.statusFilters),
+    searchFilters: activeFilters.value,
+    totalResults: filteredData.length,
+    modules: filteredData
+  }
+  
+  const dataStr = JSON.stringify(exportData, null, 2)
+  const dataBlob = new Blob([dataStr], { type: 'application/json' })
+  const url = URL.createObjectURL(dataBlob)
+  
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `filtered-modules-${new Date().toISOString().split('T')[0]}.json`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
 // Emits
 const emit = defineEmits<{
   searchChange: [data: { query: string, filters: SearchFilter[] }]
@@ -445,6 +518,63 @@ defineExpose({
 
 .clear-button:hover {
   color: #333;
+}
+
+.saved-searches-toggle {
+  position: absolute;
+  right: 40px;
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #666;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  pointer-events: auto;
+}
+
+.saved-searches-toggle:hover {
+  color: #4a90e2;
+  background: #f8f9fa;
+}
+
+.saved-searches-toggle.active {
+  color: #4a90e2;
+  background: #e3f2fd;
+}
+
+.export-toggle {
+  position: absolute;
+  right: 68px;
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #666;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  pointer-events: auto;
+}
+
+.export-toggle:hover:not(:disabled) {
+  color: #28a745;
+  background: #f8f9fa;
+}
+
+.export-toggle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.saved-searches-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  margin-top: 4px;
 }
 
 .search-suggestions {

@@ -27,6 +27,10 @@ export const useModuleStore = defineStore('module', () => {
   const error = ref<string | null>(null)
   const connectionStatus = ref<'connected' | 'disconnected' | 'loading'>('loading')
   
+  // Multi-select state
+  const selectedModuleIds = ref<Set<string>>(new Set())
+  const isMultiSelectMode = ref(false)
+  
   // Search and filter state
   const searchQuery = ref('')
   const searchFilters = ref<SearchFilter[]>([])
@@ -109,6 +113,27 @@ export const useModuleStore = defineStore('module', () => {
     searchFilters.value.length > 0 || 
     statusFilters.value.size > 0
   )
+
+  // Multi-select computed properties
+  const selectedModules = computed(() => {
+    return Array.from(selectedModuleIds.value)
+      .map(id => modules.value[id])
+      .filter(Boolean)
+  })
+
+  const selectedModuleCount = computed(() => selectedModuleIds.value.size)
+
+  const canBulkUpdateStatus = computed(() => 
+    selectedModuleCount.value > 0 && isMultiSelectMode.value
+  )
+
+  const selectedModuleStatuses = computed(() => {
+    const statuses = new Set<Module['status']>()
+    selectedModules.value.forEach(module => {
+      statuses.add(module.status)
+    })
+    return statuses
+  })
 
   // Actions
   async function loadModules() {
@@ -242,6 +267,115 @@ export const useModuleStore = defineStore('module', () => {
     searchFilters.value = [...data.filters]
   }
 
+  // Multi-select actions
+  function toggleMultiSelectMode() {
+    isMultiSelectMode.value = !isMultiSelectMode.value
+    if (!isMultiSelectMode.value) {
+      clearAllSelections()
+    }
+  }
+
+  function enableMultiSelectMode() {
+    isMultiSelectMode.value = true
+  }
+
+  function disableMultiSelectMode() {
+    isMultiSelectMode.value = false
+    clearAllSelections()
+  }
+
+  function toggleModuleSelection(moduleId: string) {
+    if (selectedModuleIds.value.has(moduleId)) {
+      selectedModuleIds.value.delete(moduleId)
+    } else {
+      selectedModuleIds.value.add(moduleId)
+    }
+    // Update single selection when not in multi-select mode
+    if (!isMultiSelectMode.value && selectedModuleIds.value.has(moduleId)) {
+      selectedModuleId.value = moduleId
+    }
+  }
+
+  function selectAllModules() {
+    filteredModules.value.forEach(module => {
+      selectedModuleIds.value.add(module.name)
+    })
+  }
+
+  function selectAllVisibleModules() {
+    selectedModuleIds.value.clear()
+    filteredModules.value.forEach(module => {
+      selectedModuleIds.value.add(module.name)
+    })
+  }
+
+  function clearAllSelections() {
+    selectedModuleIds.value.clear()
+    selectedModuleId.value = null
+  }
+
+  function isModuleSelected(moduleId: string): boolean {
+    return selectedModuleIds.value.has(moduleId)
+  }
+
+  async function bulkUpdateStatus(newStatus: Module['status']) {
+    if (!canBulkUpdateStatus.value) {
+      throw new Error('Cannot perform bulk update: no modules selected')
+    }
+
+    const updatePromises = selectedModules.value.map(async (module) => {
+      try {
+        return await updateModule(module.name, { status: newStatus })
+      } catch (err) {
+        // Log individual failures but don't stop the batch
+        if (import.meta.env.DEV) {
+          console.error(`Failed to update module ${module.name}:`, err)
+        }
+        throw err
+      }
+    })
+
+    try {
+      await Promise.all(updatePromises)
+      // Clear selections after successful bulk update
+      clearAllSelections()
+      disableMultiSelectMode()
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Some modules failed to update'
+      error.value = errorMessage
+      throw new Error(errorMessage)
+    }
+  }
+
+  async function bulkDeleteModules() {
+    if (!canBulkUpdateStatus.value) {
+      throw new Error('Cannot perform bulk delete: no modules selected')
+    }
+
+    const modulesToDelete = [...selectedModules.value]
+    const deletePromises = modulesToDelete.map(async (module) => {
+      try {
+        return await deleteModule(module.name)
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.error(`Failed to delete module ${module.name}:`, err)
+        }
+        throw err
+      }
+    })
+
+    try {
+      await Promise.all(deletePromises)
+      // Clear selections after successful bulk delete
+      clearAllSelections()
+      disableMultiSelectMode()
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Some modules failed to delete'
+      error.value = errorMessage
+      throw new Error(errorMessage)
+    }
+  }
+
   return {
     // State
     modules,
@@ -252,6 +386,9 @@ export const useModuleStore = defineStore('module', () => {
     searchQuery,
     searchFilters,
     statusFilters,
+    // Multi-select state
+    selectedModuleIds,
+    isMultiSelectMode,
     // Getters
     selectedModule,
     moduleList,
@@ -261,6 +398,11 @@ export const useModuleStore = defineStore('module', () => {
     filteredModulesMap,
     searchResultsCount,
     hasActiveFilters,
+    // Multi-select getters
+    selectedModules,
+    selectedModuleCount,
+    canBulkUpdateStatus,
+    selectedModuleStatuses,
     // Actions
     loadModules,
     selectModule,
@@ -277,6 +419,17 @@ export const useModuleStore = defineStore('module', () => {
     clearSearchFilters,
     setStatusFilters,
     clearAllFilters,
-    updateSearch
+    updateSearch,
+    // Multi-select actions
+    toggleMultiSelectMode,
+    enableMultiSelectMode,
+    disableMultiSelectMode,
+    toggleModuleSelection,
+    selectAllModules,
+    selectAllVisibleModules,
+    clearAllSelections,
+    isModuleSelected,
+    bulkUpdateStatus,
+    bulkDeleteModules
   }
 }) 

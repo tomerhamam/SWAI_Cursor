@@ -12,6 +12,13 @@
           :modules="moduleStore.modules"
           @filter-change="handleStatusFilterChange"
         />
+        <button 
+          @click="toggleMultiSelect"
+          :class="['multi-select-btn', { active: moduleStore.isMultiSelectMode }]"
+          :title="moduleStore.isMultiSelectMode ? 'Exit multi-select mode' : 'Enable multi-select mode'"
+        >
+          {{ moduleStore.isMultiSelectMode ? '✓ Multi-Select' : '☐ Multi-Select' }}
+        </button>
         <div v-if="moduleStore.hasActiveFilters" class="filter-summary">
           <span class="results-summary">
             {{ moduleStore.searchResultsCount }} of {{ moduleStore.moduleCount }} modules
@@ -74,6 +81,12 @@
       @close="closeCreateDialog"
       @submit="handleCreateModule"
     />
+    
+    <!-- Bulk Operations Panel -->
+    <BulkOperationsPanel
+      :show="moduleStore.isMultiSelectMode"
+      @duplicate-module="handleDuplicateModule"
+    />
   </div>
 </template>
 
@@ -87,6 +100,7 @@ import ContextMenu from './ContextMenu.vue'
 import ModuleCreationDialog from './ModuleCreationDialog.vue'
 import StatusFilter from './StatusFilter.vue'
 import GlobalSearch from './GlobalSearch.vue'
+import BulkOperationsPanel from './BulkOperationsPanel.vue'
 
 // Type definitions for vis.js
 interface VisNodeChosenValues {
@@ -148,32 +162,40 @@ const createNodes = (modules: Record<string, Module>): Node[] => {
         module.dependencies?.some(dep => dep.toLowerCase().includes(searchTerm))
       )
       
+      // Check if this module is selected in multi-select mode
+      const isSelected = moduleStore.isModuleSelected(id)
+      
+      // Create label with selection indicator in multi-select mode
+      const label = moduleStore.isMultiSelectMode && isSelected 
+        ? `✓ ${module.name}` 
+        : module.name
+      
       return {
         id,
-        label: module.name,
-        title: `${module.name}\n${module.description}\nStatus: ${module.status}`,
-        color: getNodeColor(module.status, isSearchMatch),
+        label,
+        title: `${module.name}\n${module.description}\nStatus: ${module.status}${moduleStore.isMultiSelectMode && isSelected ? '\n✓ Selected' : ''}`,
+        color: getNodeColor(module.status, isSearchMatch, isSelected),
         font: {
-          color: isSearchMatch ? '#2c3e50' : '#333',
+          color: isSelected ? '#1976d2' : (isSearchMatch ? '#2c3e50' : '#333'),
           size: isSearchMatch ? 16 : 14,
           face: 'Arial',
-          bold: isSearchMatch
+          bold: isSearchMatch || isSelected
         },
-        borderWidth: isSearchMatch ? 3 : 2,
+        borderWidth: isSelected ? 4 : (isSearchMatch ? 3 : 2),
         borderWidthSelected: 4,
         shape: 'box',
         margin: { top: 10, right: 10, bottom: 10, left: 10 },
-        shadow: isSearchMatch ? {
+        shadow: (isSearchMatch || isSelected) ? {
           enabled: true,
-          color: '#4a90e2',
-          size: 8,
+          color: isSelected ? '#1976d2' : '#4a90e2',
+          size: isSelected ? 10 : 8,
           x: 0,
           y: 0
         } : false,
         chosen: {
           node: (values: VisNodeChosenValues) => {
             values.borderWidth = 4
-            values.color = '#4a90e2'
+            values.color = isSelected ? '#1976d2' : '#4a90e2'
           },
           label: false
         }
@@ -210,7 +232,21 @@ const createEdges = (modules: Record<string, Module>): Edge[] => {
   return edges
 }
 
-const getNodeColor = (status: Module['status'], isHighlighted: boolean = false): string => {
+const getNodeColor = (status: Module['status'], isHighlighted: boolean = false, isSelected: boolean = false): string => {
+  if (isSelected) {
+    // Return selected state colors with blue accent
+    switch (status) {
+      case 'implemented':
+        return { background: '#2196f3', border: '#1976d2', highlight: { background: '#42a5f5', border: '#1565c0' } }
+      case 'placeholder':
+        return { background: '#2196f3', border: '#1976d2', highlight: { background: '#42a5f5', border: '#1565c0' } }
+      case 'error':
+        return { background: '#2196f3', border: '#1976d2', highlight: { background: '#42a5f5', border: '#1565c0' } }
+      default:
+        return { background: '#2196f3', border: '#1976d2', highlight: { background: '#42a5f5', border: '#1565c0' } }
+    }
+  }
+  
   if (isHighlighted) {
     // Return highlighted versions of the colors
     switch (status) {
@@ -325,11 +361,18 @@ const initializeNetwork = () => {
         // Handle dependency creation mode
         if (dependencyMode.isActive) {
           handleNodeClickForDependency(nodeId)
+        } else if (moduleStore.isMultiSelectMode) {
+          // Multi-select mode: toggle selection
+          moduleStore.toggleModuleSelection(nodeId)
         } else {
+          // Single select mode
           moduleStore.selectModule(nodeId)
         }
       } else {
-        moduleStore.clearSelection()
+        // Clicking empty space
+        if (!moduleStore.isMultiSelectMode) {
+          moduleStore.clearSelection()
+        }
         // Exit dependency mode if clicking empty space
         if (dependencyMode.isActive) {
           dependencyMode.isActive = false
@@ -571,6 +614,19 @@ const clearAllFilters = () => {
   moduleStore.clearAllFilters()
 }
 
+// Multi-select handlers
+const toggleMultiSelect = () => {
+  moduleStore.toggleMultiSelectMode()
+}
+
+const handleDuplicateModule = async (moduleData: Omit<Module, 'name'> & { name: string }) => {
+  try {
+    await moduleStore.createModule(moduleData)
+  } catch (error) {
+    console.error('Failed to duplicate module:', error)
+  }
+}
+
 // Drag & drop handlers
 const handleDragOver = (event: DragEvent) => {
   event.preventDefault()
@@ -778,6 +834,36 @@ onUnmounted(() => {
   border-color: #4a90e2;
   color: #4a90e2;
   background: #f8f9fa;
+}
+
+.multi-select-btn {
+  padding: 8px 16px;
+  border: 2px solid #e1e5e9;
+  border-radius: 6px;
+  background: white;
+  color: #666;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.multi-select-btn:hover {
+  border-color: #4a90e2;
+  color: #4a90e2;
+  background: #f8f9fa;
+}
+
+.multi-select-btn.active {
+  border-color: #2196f3;
+  color: #2196f3;
+  background: #e3f2fd;
+  font-weight: 600;
+}
+
+.multi-select-btn.active:hover {
+  background: #bbdefb;
 }
 
 /* Responsive design for filter bar */
