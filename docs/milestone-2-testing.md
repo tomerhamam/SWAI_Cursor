@@ -7,12 +7,11 @@
 
 ```bash
 # Option 1: Use automated startup script (recommended)
-cd /home/thh3/work/SWAI_Cursor
+# Navigate to project root
 ./start_servers.sh
 
 # Option 2: Manual startup
 # Start backend server from project root
-cd /home/thh3/work/SWAI_Cursor
 # If you get "Address already in use" errors, run: ./kill_ports.sh
 python -m flask --app app.py run --debug &
 

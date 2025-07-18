@@ -7,7 +7,8 @@
 
 ```bash
 # Start both servers
-cd /home/thh3/work/SWAI_Cursor && python -m flask --app app.py run --debug &
+# From the project root, start the backend:
+python -m flask --app app.py run --debug &
 cd frontend && npm run dev &
 
 # Open browser to http://localhost:3001

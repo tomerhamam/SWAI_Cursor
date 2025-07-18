@@ -7,7 +7,8 @@
 
 ```bash
 # Start backend server
-cd /home/thh3/work/SWAI_Cursor && python -m flask --app app.py run --debug &
+# From the project root:
+python -m flask --app app.py run --debug &
 
 # Start frontend development server
 cd frontend && npm run dev &

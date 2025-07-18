@@ -7,7 +7,6 @@
 
 ```bash
 # Ensure you're in project root with virtual environment activated
-cd /home/thh3/work/SWAI_Cursor
 # Virtual environment (.venv) should already be activated
 
 # Option 1: Use automated startup script (recommended)
@@ -19,7 +18,7 @@ python -m flask --app app.py run --debug
 
 # Open a second terminal for testing
 # New terminal:
-cd /home/thh3/work/SWAI_Cursor
+# Navigate to project root
 # Virtual environment should already be activated
 ```
 

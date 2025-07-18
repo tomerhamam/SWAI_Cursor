@@ -26,7 +26,7 @@ Error: Could not locate a Flask application. Use the 'flask --app' option
 
 **Working Commands:**
 ```bash
-# From project root directory (/home/thh3/work/SWAI_Cursor)
+# From project root directory
 python -m flask --app app.py run --debug &
 cd frontend && npm run dev &
 
