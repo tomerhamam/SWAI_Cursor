@@ -13,11 +13,22 @@
       ref="graphContainer" 
       class="graph-view" 
       :class="{ 'drop-active': dropZone.isActive, 'dependency-mode': dependencyMode.isActive }"
+      role="application"
+      aria-label="Module dependency graph visualization"
+      aria-describedby="graph-instructions"
+      tabindex="0"
       @contextmenu.prevent 
       @dragover.prevent="handleDragOver"
       @drop.prevent="handleDrop"
       @dragleave="handleDragLeave"
+      @keydown="handleKeyDown"
     />
+    
+    <!-- Screen reader instructions -->
+    <div id="graph-instructions" class="sr-only">
+      Interactive graph showing module dependencies. Use arrow keys to navigate between modules. 
+      Press Enter to select a module, Space to open context menu, or Tab to navigate to controls.
+    </div>
     
     <div v-if="isLoading" class="loading-overlay">
       <div class="loading-spinner"></div>
@@ -48,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, computed, reactive } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed, reactive, nextTick } from 'vue'
 import { Network } from 'vis-network/standalone/esm/vis-network'
 import type { Data, Options, Node, Edge } from 'vis-network/standalone/esm/vis-network'
 import { useModuleStore } from '../stores/moduleStore'
@@ -56,6 +67,20 @@ import type { Module } from '../stores/moduleStore'
 import ContextMenu from './ContextMenu.vue'
 import ModuleCreationDialog from './ModuleCreationDialog.vue'
 import StatusFilter from './StatusFilter.vue'
+
+// Type definitions for vis.js
+interface VisNodeChosenValues {
+  borderWidth: number
+  color: string
+}
+
+interface PreviewLine {
+  id: string
+  from: string
+  to: { x: number; y: number }
+  color: { color: string }
+  dashes: boolean
+}
 
 const moduleStore = useModuleStore()
 const graphContainer = ref<HTMLElement>()
@@ -88,7 +113,7 @@ const dropZone = reactive({
 const dependencyMode = reactive({
   isActive: false,
   sourceNodeId: null as string | null,
-  previewLine: null as any
+  previewLine: null as PreviewLine | null
 })
 
 // Convert modules to vis.js nodes
@@ -114,7 +139,7 @@ const createNodes = (modules: Record<string, Module>): Node[] => {
     shape: 'box',
     margin: { top: 10, right: 10, bottom: 10, left: 10 },
     chosen: {
-      node: (values: any) => {
+      node: (values: VisNodeChosenValues) => {
         values.borderWidth = 4
         values.color = '#4a90e2'
       },
@@ -283,6 +308,8 @@ const initializeNetwork = () => {
 
     // Handle right-click context menu
     network.on('oncontext', (params) => {
+      if (!network) return
+      
       // Get the canvas position
       const canvasPosition = network.canvasToDOM(params.pointer.canvas)
       
@@ -351,6 +378,88 @@ const updateNetwork = () => {
 const retryLoad = () => {
   moduleStore.clearError()
   moduleStore.loadModules()
+}
+
+// Keyboard navigation for accessibility
+const handleKeyDown = (event: KeyboardEvent) => {
+  if (!network) return
+
+  const selectedNodes = network.getSelectedNodes()
+  const allNodes = Object.keys(moduleStore.modules)
+  
+  switch (event.key) {
+    case 'Enter':
+      event.preventDefault()
+      if (selectedNodes.length > 0) {
+        moduleStore.selectModule(String(selectedNodes[0]))
+      }
+      break
+    case ' ': // Space bar
+      event.preventDefault()
+      if (selectedNodes.length > 0) {
+        const nodeId = String(selectedNodes[0])
+        const nodePosition = network.getPositions([nodeId])[nodeId]
+        if (nodePosition) {
+          const canvasPosition = network.canvasToDOM(nodePosition)
+          contextMenu.visible = true
+          contextMenu.position = { x: canvasPosition.x, y: canvasPosition.y }
+          contextMenu.type = 'node'
+          contextMenu.nodeId = nodeId
+        }
+      }
+      break
+    case 'ArrowUp':
+    case 'ArrowDown':
+    case 'ArrowLeft':
+    case 'ArrowRight':
+      event.preventDefault()
+      navigateWithKeyboard(event.key, selectedNodes.map(String), allNodes)
+      break
+    case 'Escape':
+      event.preventDefault()
+      if (network) {
+        network.unselectAll()
+      }
+      closeContextMenu()
+      break
+  }
+}
+
+const navigateWithKeyboard = (key: string, selectedNodes: string[], allNodes: string[]) => {
+  if (!network || allNodes.length === 0) return
+
+  let targetNodeId: string
+  
+  if (selectedNodes.length === 0) {
+    // No selection, select first node
+    targetNodeId = allNodes[0]
+  } else {
+    // Navigate based on position relative to current selection
+    const currentNodeId = selectedNodes[0]
+    const currentIndex = allNodes.indexOf(currentNodeId)
+    
+    switch (key) {
+      case 'ArrowUp':
+      case 'ArrowLeft':
+        targetNodeId = allNodes[(currentIndex - 1 + allNodes.length) % allNodes.length]
+        break
+      case 'ArrowDown':
+      case 'ArrowRight':
+        targetNodeId = allNodes[(currentIndex + 1) % allNodes.length]
+        break
+      default:
+        return
+    }
+  }
+  
+  network.selectNodes([targetNodeId])
+  network.focus(targetNodeId, {
+    scale: 1.0,
+    animation: {
+      duration: 300,
+      easingFunction: 'easeInOutQuad'
+    }
+  })
 }
 
 // Context menu handlers
@@ -721,5 +830,18 @@ onUnmounted(() => {
 
 .error-overlay button:hover {
   background: #2980b9;
+}
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 </style> 

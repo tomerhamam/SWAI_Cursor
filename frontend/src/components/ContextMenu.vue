@@ -2,18 +2,37 @@
   <div 
     v-if="visible" 
     class="context-menu"
+    role="menu"
+    :aria-label="`Context menu for ${contextType === 'node' && nodeId ? nodeId : 'canvas'}`"
     :style="{ left: position.x + 'px', top: position.y + 'px' }"
     @click.stop
+    @keydown="handleKeyDown"
+    tabindex="-1"
+    ref="menuElement"
   >
-    <div class="menu-item" v-for="item in menuItems" :key="item.id" @click="handleMenuClick(item)">
-      <span class="menu-icon" v-if="item.icon">{{ item.icon }}</span>
+    <div 
+      v-for="(item, index) in menuItems" 
+      :key="item.id"
+      :class="['menu-item', { 'menu-separator': item.text === '---', 'menu-item-disabled': item.enabled === false }]"
+      :role="item.text === '---' ? 'separator' : 'menuitem'"
+      :tabindex="item.text === '---' || item.enabled === false ? -1 : 0"
+      :aria-disabled="item.enabled === false"
+      :aria-label="item.text"
+      :data-index="index"
+      @click="handleMenuClick(item)"
+      @keydown.enter="handleMenuClick(item)"
+      @keydown.space.prevent="handleMenuClick(item)"
+      @focus="currentFocusIndex = index"
+      ref="menuItemElements"
+    >
+      <span class="menu-icon" v-if="item.icon && item.text !== '---'" :aria-hidden="true">{{ item.icon }}</span>
       <span class="menu-text">{{ item.text }}</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 
 export interface ContextMenuItem {
   id: string
@@ -36,6 +55,11 @@ const emit = defineEmits<{
   menuAction: [action: string, nodeId?: string]
   close: []
 }>()
+
+// Accessibility state
+const menuElement = ref<HTMLElement>()
+const menuItemElements = ref<HTMLElement[]>([])
+const currentFocusIndex = ref(0)
 
 // Define menu items based on context
 const menuItems = computed(() => {
@@ -64,6 +88,82 @@ const handleMenuClick = (item: ContextMenuItem) => {
   emit('menuAction', item.action, props.nodeId)
   emit('close')
 }
+
+const handleKeyDown = (event: KeyboardEvent) => {
+  const focusableIndexes = menuItems.value
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => item.text !== '---' && item.enabled !== false)
+    .map(({ index }) => index)
+
+  if (focusableIndexes.length === 0) return
+
+  switch (event.key) {
+    case 'ArrowDown':
+      event.preventDefault()
+      navigateToNext(focusableIndexes)
+      break
+    case 'ArrowUp':
+      event.preventDefault()
+      navigateToPrevious(focusableIndexes)
+      break
+    case 'Home':
+      event.preventDefault()
+      focusItem(focusableIndexes[0])
+      break
+    case 'End':
+      event.preventDefault()
+      focusItem(focusableIndexes[focusableIndexes.length - 1])
+      break
+    case 'Escape':
+      event.preventDefault()
+      emit('close')
+      break
+  }
+}
+
+const navigateToNext = (focusableIndexes: number[]) => {
+  const currentIndex = focusableIndexes.indexOf(currentFocusIndex.value)
+  const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % focusableIndexes.length
+  focusItem(focusableIndexes[nextIndex])
+}
+
+const navigateToPrevious = (focusableIndexes: number[]) => {
+  const currentIndex = focusableIndexes.indexOf(currentFocusIndex.value)
+  const prevIndex = currentIndex === -1 ? 
+    focusableIndexes.length - 1 : 
+    (currentIndex - 1 + focusableIndexes.length) % focusableIndexes.length
+  focusItem(focusableIndexes[prevIndex])
+}
+
+const focusItem = (index: number) => {
+  currentFocusIndex.value = index
+  nextTick(() => {
+    const element = menuItemElements.value[index]
+    if (element) {
+      element.focus()
+    }
+  })
+}
+
+// Focus management when menu becomes visible
+watch(() => props.visible, (isVisible) => {
+  if (isVisible) {
+    nextTick(() => {
+      // Focus the menu container and first focusable item
+      if (menuElement.value) {
+        menuElement.value.focus()
+      }
+      
+      const firstFocusableIndex = menuItems.value.findIndex(
+        item => item.text !== '---' && item.enabled !== false
+      )
+      
+      if (firstFocusableIndex !== -1) {
+        focusItem(firstFocusableIndex)
+      }
+    })
+  }
+})
 </script>
 
 <style scoped>
@@ -92,9 +192,27 @@ const handleMenuClick = (item: ContextMenuItem) => {
   background-color: #f5f5f5;
 }
 
-.menu-item[data-enabled="false"] {
+.menu-item-disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.menu-item:focus {
+  background-color: #e3f2fd;
+  outline: 2px solid #1976d2;
+  outline-offset: -2px;
+}
+
+.menu-separator {
+  height: 1px;
+  background-color: #eee;
+  margin: 4px 0;
+  padding: 0;
+  pointer-events: none;
+}
+
+.menu-separator .menu-text {
+  display: none;
 }
 
 .menu-icon {
@@ -105,13 +223,5 @@ const handleMenuClick = (item: ContextMenuItem) => {
 
 .menu-text {
   flex: 1;
-}
-
-.menu-item:has(.menu-text:contains("---")) {
-  height: 1px;
-  background-color: #eee;
-  margin: 4px 0;
-  padding: 0;
-  pointer-events: none;
 }
 </style> 

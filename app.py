@@ -15,6 +15,7 @@ from flask.wrappers import Response
 from backend.services.loader import load_modules, ModuleNode
 from backend.services.surrogate import registry
 import yaml
+import re
 
 
 # Initialize Flask app
@@ -24,6 +25,122 @@ app = Flask(__name__, static_folder='static', static_url_path='/static')
 # Global module data cache
 _module_cache = {}
 _modules_loaded = False
+
+
+def validate_module_name(module_name: str) -> tuple[bool, str]:
+    """
+    Validate module name to prevent path traversal attacks and ensure proper format.
+    
+    Args:
+        module_name: The module name to validate
+        
+    Returns:
+        Tuple of (is_valid: bool, error_message: str)
+    """
+    if not module_name:
+        return False, "Module name cannot be empty"
+    
+    # Limit length to prevent abuse
+    if len(module_name) > 50:
+        return False, "Module name cannot exceed 50 characters"
+    
+    # Allow only alphanumeric characters, underscores, and hyphens
+    if not re.match(r'^[a-zA-Z0-9_-]+$', module_name):
+        return False, "Module name can only contain letters, numbers, underscores, and hyphens"
+    
+    # Prevent path traversal patterns
+    if '..' in module_name or '/' in module_name or '\\' in module_name:
+        return False, "Module name cannot contain path traversal characters"
+    
+    return True, ""
+
+
+def check_module_dependencies(module_to_delete: str) -> list[str]:
+    """
+    Check if any modules depend on the module being deleted.
+    
+    Args:
+        module_to_delete: Name of the module to be deleted
+        
+    Returns:
+        List of module names that depend on the module to be deleted
+    """
+    dependents = []
+    
+    try:
+        for module_name, module_node in _module_cache.items():
+            if module_name == module_to_delete:
+                continue
+                
+            # Check if this module depends on the one being deleted
+            if hasattr(module_node, 'dependencies'):
+                for dep in module_node.dependencies:
+                    # Handle both string dependencies and dict dependencies
+                    dep_name = dep if isinstance(dep, str) else dep
+                    if dep_name == module_to_delete:
+                        dependents.append(module_name)
+                        break
+                    
+    except Exception as e:
+        app.logger.error(f"Error checking dependencies: {e}")
+    
+    return dependents
+
+
+def detect_circular_dependencies(modules_cache: dict) -> list[str]:
+    """
+    Detect circular dependencies in the module graph using DFS.
+    
+    Args:
+        modules_cache: Dictionary of module nodes from cache
+        
+    Returns:
+        List representing a circular dependency path, empty if no cycles
+    """
+    def get_dependencies(module_name: str) -> list[str]:
+        """Get dependency names for a module."""
+        if module_name not in modules_cache:
+            return []
+        
+        module_node = modules_cache[module_name]
+        if not hasattr(module_node, 'dependencies'):
+            return []
+            
+        dep_names = []
+        for dep in module_node.dependencies:
+            dep_names.append(dep)
+        return dep_names
+    
+    def dfs(node: str, visited: set, rec_stack: set, path: list) -> list[str]:
+        """DFS to detect cycles."""
+        visited.add(node)
+        rec_stack.add(node)
+        path.append(node)
+        
+        for dep in get_dependencies(node):
+            if dep in modules_cache:  # Only check existing modules
+                if dep in rec_stack:
+                    # Found cycle - return the cycle path
+                    cycle_start = path.index(dep)
+                    return path[cycle_start:] + [dep]
+                elif dep not in visited:
+                    cycle = dfs(dep, visited, rec_stack, path)
+                    if cycle:
+                        return cycle
+        
+        rec_stack.remove(node)
+        path.pop()
+        return []
+    
+    visited = set()
+    
+    for module_name in modules_cache:
+        if module_name not in visited:
+            cycle = dfs(module_name, visited, set(), [])
+            if cycle:
+                return cycle
+    
+    return []
 
 
 def load_module_cache():
@@ -110,9 +227,38 @@ def create_module():
         if 'name' not in module_data:
             return jsonify({'error': 'Module name is required'}), 400
         
+        # Validate module name to prevent path traversal attacks
+        module_name = module_data['name']
+        is_valid, error_msg = validate_module_name(module_name)
+        if not is_valid:
+            return jsonify({'error': error_msg}), 400
+        
+        # Additional input validation
+        if len(module_name) > 50:
+            return jsonify({'error': 'Module name cannot exceed 50 characters'}), 400
+        
+        # Validate description if provided
+        description = module_data.get('description', 'Generated module')
+        if not isinstance(description, str) or len(description) > 500:
+            return jsonify({'error': 'Description must be a string with maximum 500 characters'}), 400
+        
+        # Validate status if provided
+        valid_statuses = ['placeholder', 'in_progress', 'completed', 'error']
+        status = module_data.get('status', 'placeholder')
+        if status not in valid_statuses:
+            return jsonify({'error': f'Status must be one of: {", ".join(valid_statuses)}'}), 400
+        
+        # Validate lists (inputs, outputs, dependencies)
+        for field_name in ['inputs', 'outputs', 'dependencies']:
+            field_value = module_data.get(field_name, [])
+            if not isinstance(field_value, list):
+                return jsonify({'error': f'{field_name} must be a list'}), 400
+            if len(field_value) > 20:
+                return jsonify({'error': f'{field_name} cannot have more than 20 items'}), 400
+        
         # Set defaults for optional fields
-        module_data.setdefault('description', 'Generated module')
-        module_data.setdefault('status', 'placeholder')
+        module_data.setdefault('description', description)
+        module_data.setdefault('status', status)
         module_data.setdefault('inputs', [])
         module_data.setdefault('outputs', [])
         module_data.setdefault('dependencies', [])
@@ -134,6 +280,17 @@ def create_module():
         if module_file.exists():
             return jsonify({'error': f'Module {module_node.name} already exists'}), 409
         
+        # Check for circular dependencies before saving
+        # Create a temporary cache with the new module
+        temp_cache = _module_cache.copy()
+        temp_cache[module_node.name] = module_node
+        
+        cycle = detect_circular_dependencies(temp_cache)
+        if cycle:
+            return jsonify({
+                'error': f'Module creation would create a circular dependency: {" -> ".join(cycle)}'
+            }), 409
+        
         # Convert to plain dict with str values
         module_dict = module_node.model_dump()
         if 'status' in module_dict:
@@ -147,8 +304,16 @@ def create_module():
         
         return jsonify(module_dict), 201
         
+    except FileNotFoundError as e:
+        return jsonify({'error': 'Module directory not accessible'}), 500
+    except PermissionError as e:
+        return jsonify({'error': 'Permission denied accessing module files'}), 500
+    except yaml.YAMLError as e:
+        return jsonify({'error': f'YAML processing error: {str(e)}'}), 500
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        # Log the full error for debugging but return sanitized message
+        app.logger.error(f"Unexpected error in create_module: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/surrogates')
@@ -260,12 +425,43 @@ def update_module(module_name: str):
     Validates the input, merges updates with the existing module definition, ensures the module name remains unchanged, validates the updated data, saves it to the YAML file, reloads the module cache, and returns the updated module data as JSON. Returns appropriate error responses for invalid input, validation errors, or if the module does not exist.
     """
     try:
+        # Validate module name to prevent path traversal attacks
+        is_valid, error_msg = validate_module_name(module_name)
+        if not is_valid:
+            return jsonify({'error': error_msg}), 400
+    
         if not request.is_json:
             return jsonify({'error': 'Request must be JSON'}), 400
         
         module_data = request.get_json()
         if not module_data:
             return jsonify({'error': 'No JSON data provided'}), 400
+        
+        # Input validation for update data
+        if 'name' in module_data and module_data['name'] != module_name:
+            return jsonify({'error': 'Module name cannot be changed during update'}), 400
+        
+        # Validate description if provided
+        if 'description' in module_data:
+            description = module_data['description']
+            if not isinstance(description, str) or len(description) > 500:
+                return jsonify({'error': 'Description must be a string with maximum 500 characters'}), 400
+        
+        # Validate status if provided
+        if 'status' in module_data:
+            valid_statuses = ['placeholder', 'in_progress', 'completed', 'error']
+            status = module_data['status']
+            if status not in valid_statuses:
+                return jsonify({'error': f'Status must be one of: {", ".join(valid_statuses)}'}), 400
+        
+        # Validate lists if provided
+        for field_name in ['inputs', 'outputs', 'dependencies']:
+            if field_name in module_data:
+                field_value = module_data[field_name]
+                if not isinstance(field_value, list):
+                    return jsonify({'error': f'{field_name} must be a list'}), 400
+                if len(field_value) > 20:
+                    return jsonify({'error': f'{field_name} cannot have more than 20 items'}), 400
         
         # Check if module exists
         modules_dir = Path("modules")
@@ -290,6 +486,17 @@ def update_module(module_name: str):
                 'details': str(e)
             }), 400
         
+        # Check for circular dependencies before saving
+        # Create a temporary cache with the updated module
+        temp_cache = _module_cache.copy()
+        temp_cache[module_name] = module_node
+        
+        cycle = detect_circular_dependencies(temp_cache)
+        if cycle:
+            return jsonify({
+                'error': f'Update would create a circular dependency: {" -> ".join(cycle)}'
+            }), 409
+        
         # Convert to plain dict with str values
         module_dict = module_node.model_dump()
         if 'status' in module_dict:
@@ -303,8 +510,16 @@ def update_module(module_name: str):
         
         return jsonify(module_dict), 200
         
+    except FileNotFoundError as e:
+        return jsonify({'error': 'Module file not accessible'}), 500
+    except PermissionError as e:
+        return jsonify({'error': 'Permission denied accessing module files'}), 500
+    except yaml.YAMLError as e:
+        return jsonify({'error': f'YAML processing error: {str(e)}'}), 500
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        # Log the full error for debugging but return sanitized message
+        app.logger.error(f"Unexpected error in update_module: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/modules/<module_name>', methods=['DELETE'])
@@ -316,12 +531,31 @@ def delete_module(module_name: str):
         An empty response with HTTP 204 status on success, or a JSON error message with appropriate HTTP status code if the module is not found or an error occurs.
     """
     try:
+        # Validate module name to prevent path traversal attacks
+        is_valid, error_msg = validate_module_name(module_name)
+        if not is_valid:
+            return jsonify({'error': error_msg}), 400
+    
         modules_dir = Path("modules")
         module_file = modules_dir / f"{module_name}.yaml"
         
         if not module_file.exists():
             return jsonify({'error': f'Module {module_name} not found'}), 404
         
+        # Check for dependents
+        dependents = check_module_dependencies(module_name)
+        if dependents:
+            return jsonify({
+                'error': f'Module "{module_name}" cannot be deleted because it is a dependency for: {", ".join(dependents)}'
+            }), 409
+
+        # Detect circular dependencies
+        cycle = detect_circular_dependencies(_module_cache)
+        if cycle:
+            return jsonify({
+                'error': f'Module "{module_name}" cannot be deleted because it is part of a circular dependency: {", ".join(cycle)}'
+            }), 409
+
         # Delete the file
         module_file.unlink()
         
@@ -330,8 +564,14 @@ def delete_module(module_name: str):
         
         return '', 204
         
+    except FileNotFoundError as e:
+        return jsonify({'error': 'Module file not found'}), 404
+    except PermissionError as e:
+        return jsonify({'error': 'Permission denied deleting module file'}), 500
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        # Log the full error for debugging but return sanitized message
+        app.logger.error(f"Unexpected error in delete_module: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.errorhandler(404)
