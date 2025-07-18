@@ -13,6 +13,12 @@ export interface Module {
   file_path?: string
 }
 
+export interface SearchFilter {
+  type: 'status' | 'dependency' | 'version' | 'name' | 'description'
+  value: string
+  label: string
+}
+
 export const useModuleStore = defineStore('module', () => {
   // State
   const modules = ref<Record<string, Module>>({})
@@ -20,6 +26,11 @@ export const useModuleStore = defineStore('module', () => {
   const isLoading = ref(false)
   const error = ref<string | null>(null)
   const connectionStatus = ref<'connected' | 'disconnected' | 'loading'>('loading')
+  
+  // Search and filter state
+  const searchQuery = ref('')
+  const searchFilters = ref<SearchFilter[]>([])
+  const statusFilters = ref<Set<Module['status']>>(new Set())
 
   // Getters
   const selectedModule = computed(() => {
@@ -40,6 +51,65 @@ export const useModuleStore = defineStore('module', () => {
     }
   })
 
+  // Search and filter computed properties
+  const filteredModules = computed(() => {
+    let filtered = Object.values(modules.value)
+    
+    // Apply search query
+    if (searchQuery.value) {
+      const query = searchQuery.value.toLowerCase()
+      filtered = filtered.filter(module => 
+        module.name.toLowerCase().includes(query) ||
+        module.description.toLowerCase().includes(query) ||
+        module.dependencies?.some(dep => dep.toLowerCase().includes(query)) ||
+        module.version?.toLowerCase().includes(query)
+      )
+    }
+    
+    // Apply status filters
+    if (statusFilters.value.size > 0) {
+      filtered = filtered.filter(module => statusFilters.value.has(module.status))
+    }
+    
+    // Apply additional search filters
+    filtered = filtered.filter(module => {
+      return searchFilters.value.every(filter => {
+        switch (filter.type) {
+          case 'status':
+            return module.status === filter.value
+          case 'dependency':
+            return module.dependencies?.includes(filter.value)
+          case 'version':
+            return module.version === filter.value
+          case 'name':
+            return module.name.toLowerCase().includes(filter.value.toLowerCase())
+          case 'description':
+            return module.description.toLowerCase().includes(filter.value.toLowerCase())
+          default:
+            return true
+        }
+      })
+    })
+    
+    return filtered
+  })
+
+  const filteredModulesMap = computed(() => {
+    const map: Record<string, Module> = {}
+    filteredModules.value.forEach(module => {
+      map[module.name] = module
+    })
+    return map
+  })
+
+  const searchResultsCount = computed(() => filteredModules.value.length)
+
+  const hasActiveFilters = computed(() => 
+    searchQuery.value.length > 0 || 
+    searchFilters.value.length > 0 || 
+    statusFilters.value.size > 0
+  )
+
   // Actions
   async function loadModules() {
     isLoading.value = true
@@ -53,7 +123,10 @@ export const useModuleStore = defineStore('module', () => {
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to load modules'
       connectionStatus.value = 'disconnected'
-      console.error('Failed to load modules:', err)
+      // Log only in development
+      if (import.meta.env.DEV) {
+        console.error('Failed to load modules:', err)
+      }
     } finally {
       isLoading.value = false
     }
@@ -71,9 +144,17 @@ export const useModuleStore = defineStore('module', () => {
     try {
       const updatedModule = await apiService.updateModule(moduleId, updates)
       modules.value[moduleId] = updatedModule
+      return updatedModule
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to update module'
-      throw err
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update module'
+      error.value = errorMessage
+      
+      // Log only in development
+      if (import.meta.env.DEV) {
+        console.error('Failed to update module:', err)
+      }
+      
+      throw new Error(errorMessage)
     }
   }
 
@@ -83,8 +164,15 @@ export const useModuleStore = defineStore('module', () => {
       modules.value[module.name] = newModule
       return newModule
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to create module'
-      throw err
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create module'
+      error.value = errorMessage
+      
+      // Log only in development
+      if (import.meta.env.DEV) {
+        console.error('Failed to create module:', err)
+      }
+      
+      throw new Error(errorMessage)
     }
   }
 
@@ -96,13 +184,62 @@ export const useModuleStore = defineStore('module', () => {
         clearSelection()
       }
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to delete module'
-      throw err
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete module'
+      error.value = errorMessage
+      
+      // Log only in development
+      if (import.meta.env.DEV) {
+        console.error('Failed to delete module:', err)
+      }
+      
+      throw new Error(errorMessage)
     }
   }
 
   function clearError() {
     error.value = null
+  }
+
+  function setError(message: string) {
+    error.value = message
+  }
+
+  // Search and filter actions
+  function setSearchQuery(query: string) {
+    searchQuery.value = query
+  }
+
+  function addSearchFilter(filter: SearchFilter) {
+    // Remove existing filter of same type with same value
+    searchFilters.value = searchFilters.value.filter(
+      f => !(f.type === filter.type && f.value === filter.value)
+    )
+    searchFilters.value.push(filter)
+  }
+
+  function removeSearchFilter(filter: SearchFilter) {
+    searchFilters.value = searchFilters.value.filter(
+      f => !(f.type === filter.type && f.value === filter.value)
+    )
+  }
+
+  function clearSearchFilters() {
+    searchFilters.value = []
+  }
+
+  function setStatusFilters(statuses: Set<Module['status']>) {
+    statusFilters.value = new Set(statuses)
+  }
+
+  function clearAllFilters() {
+    searchQuery.value = ''
+    searchFilters.value = []
+    statusFilters.value = new Set()
+  }
+
+  function updateSearch(data: { query: string, filters: SearchFilter[] }) {
+    searchQuery.value = data.query
+    searchFilters.value = [...data.filters]
   }
 
   return {
@@ -112,11 +249,18 @@ export const useModuleStore = defineStore('module', () => {
     isLoading,
     error,
     connectionStatus,
+    searchQuery,
+    searchFilters,
+    statusFilters,
     // Getters
     selectedModule,
     moduleList,
     moduleCount,
     getModulesByStatus,
+    filteredModules,
+    filteredModulesMap,
+    searchResultsCount,
+    hasActiveFilters,
     // Actions
     loadModules,
     selectModule,
@@ -124,6 +268,15 @@ export const useModuleStore = defineStore('module', () => {
     updateModule,
     createModule,
     deleteModule,
-    clearError
+    clearError,
+    setError,
+    // Search actions
+    setSearchQuery,
+    addSearchFilter,
+    removeSearchFilter,
+    clearSearchFilters,
+    setStatusFilters,
+    clearAllFilters,
+    updateSearch
   }
 }) 

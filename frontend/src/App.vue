@@ -1,26 +1,28 @@
 <template>
-  <div id="app">
-    <header class="app-header">
-      <h1>Modular AI Architecture</h1>
-      <div class="header-controls">
-        <span class="status">{{ connectionStatus }}</span>
-      </div>
-    </header>
-    
-    <main class="app-main">
-      <ModulePalette />
+  <ErrorBoundary @error="handleError" @reset="handleErrorReset">
+    <div id="app">
+      <header class="app-header">
+        <h1>Modular AI Architecture</h1>
+        <div class="header-controls">
+          <span class="status">{{ connectionStatus }}</span>
+        </div>
+      </header>
       
-      <div class="graph-container">
-        <GraphView />
-      </div>
-      
-      <ModulePanel 
-        v-if="selectedModule"
-        :module="selectedModule"
-        @close="clearSelection"
-      />
-    </main>
-  </div>
+      <main class="app-main">
+        <ModulePalette />
+        
+        <div class="graph-container">
+          <GraphView />
+        </div>
+        
+        <ModulePanel 
+          v-if="selectedModule"
+          :module="selectedModule"
+          @close="clearSelection"
+        />
+      </main>
+    </div>
+  </ErrorBoundary>
 </template>
 
 <script setup lang="ts">
@@ -28,6 +30,7 @@ import { computed } from 'vue'
 import GraphView from './components/GraphView.vue'
 import ModulePanel from './components/ModulePanel.vue'
 import ModulePalette from './components/ModulePalette.vue'
+import ErrorBoundary from './components/ErrorBoundary.vue'
 import { useModuleStore } from './stores/moduleStore'
 
 const moduleStore = useModuleStore()
@@ -37,6 +40,21 @@ const connectionStatus = computed(() => moduleStore.connectionStatus)
 
 const clearSelection = () => {
   moduleStore.clearSelection()
+}
+
+const handleError = (error: Error) => {
+  // Log error to console in development
+  if (import.meta.env.DEV) {
+    console.error('Application error:', error)
+  }
+  
+  // Could send to error tracking service here
+  // Example: sendToErrorTracking(error)
+}
+
+const handleErrorReset = () => {
+  // Reload modules after error reset
+  moduleStore.loadModules()
 }
 
 // Initialize the store

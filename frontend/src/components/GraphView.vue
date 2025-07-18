@@ -1,11 +1,30 @@
 <template>
   <div class="graph-container">
-    <!-- Status Filter -->
+    <!-- Search and Filter Bar -->
     <div class="filter-bar">
-      <StatusFilter 
-        :modules="moduleStore.modules"
-        @filter-change="handleFilterChange"
-      />
+      <div class="search-section">
+        <GlobalSearch 
+          @search-change="handleSearchChange"
+        />
+      </div>
+      <div class="filter-section">
+        <StatusFilter 
+          :modules="moduleStore.modules"
+          @filter-change="handleStatusFilterChange"
+        />
+        <div v-if="moduleStore.hasActiveFilters" class="filter-summary">
+          <span class="results-summary">
+            {{ moduleStore.searchResultsCount }} of {{ moduleStore.moduleCount }} modules
+          </span>
+          <button 
+            @click="clearAllFilters" 
+            class="clear-filters-btn"
+            title="Clear all filters"
+          >
+            Clear All
+          </button>
+        </div>
+      </div>
     </div>
     
     <!-- Graph View -->
@@ -67,6 +86,7 @@ import type { Module } from '../stores/moduleStore'
 import ContextMenu from './ContextMenu.vue'
 import ModuleCreationDialog from './ModuleCreationDialog.vue'
 import StatusFilter from './StatusFilter.vue'
+import GlobalSearch from './GlobalSearch.vue'
 
 // Type definitions for vis.js
 interface VisNodeChosenValues {
@@ -100,8 +120,7 @@ const contextMenu = reactive({
 // Dialog state
 const showCreateDialog = ref(false)
 
-// Filter state
-const statusFilter = ref<Set<Module['status']>>(new Set())
+// Filter state is now managed in the store
 
 // Drag & drop state
 const dropZone = reactive({
@@ -118,34 +137,48 @@ const dependencyMode = reactive({
 
 // Convert modules to vis.js nodes
 const createNodes = (modules: Record<string, Module>): Node[] => {
+  const searchTerm = moduleStore.searchQuery.toLowerCase()
+  
   return Object.entries(modules)
-    .filter(([id, module]) => {
-      // Apply status filter
-      if (statusFilter.value.size === 0) return true
-      return statusFilter.value.has(module.status)
+    .map(([id, module]) => {
+      // Check if this module matches the search query
+      const isSearchMatch = searchTerm && (
+        module.name.toLowerCase().includes(searchTerm) ||
+        module.description.toLowerCase().includes(searchTerm) ||
+        module.dependencies?.some(dep => dep.toLowerCase().includes(searchTerm))
+      )
+      
+      return {
+        id,
+        label: module.name,
+        title: `${module.name}\n${module.description}\nStatus: ${module.status}`,
+        color: getNodeColor(module.status, isSearchMatch),
+        font: {
+          color: isSearchMatch ? '#2c3e50' : '#333',
+          size: isSearchMatch ? 16 : 14,
+          face: 'Arial',
+          bold: isSearchMatch
+        },
+        borderWidth: isSearchMatch ? 3 : 2,
+        borderWidthSelected: 4,
+        shape: 'box',
+        margin: { top: 10, right: 10, bottom: 10, left: 10 },
+        shadow: isSearchMatch ? {
+          enabled: true,
+          color: '#4a90e2',
+          size: 8,
+          x: 0,
+          y: 0
+        } : false,
+        chosen: {
+          node: (values: VisNodeChosenValues) => {
+            values.borderWidth = 4
+            values.color = '#4a90e2'
+          },
+          label: false
+        }
+      }
     })
-    .map(([id, module]) => ({
-    id,
-    label: module.name,
-    title: `${module.name}\n${module.description}\nStatus: ${module.status}`,
-    color: getNodeColor(module.status),
-    font: {
-      color: '#333',
-      size: 14,
-      face: 'Arial'
-    },
-    borderWidth: 2,
-    borderWidthSelected: 3,
-    shape: 'box',
-    margin: { top: 10, right: 10, bottom: 10, left: 10 },
-    chosen: {
-      node: (values: VisNodeChosenValues) => {
-        values.borderWidth = 4
-        values.color = '#4a90e2'
-      },
-      label: false
-    }
-  }))
 }
 
 // Convert dependencies to vis.js edges
@@ -177,7 +210,22 @@ const createEdges = (modules: Record<string, Module>): Edge[] => {
   return edges
 }
 
-const getNodeColor = (status: Module['status']): string => {
+const getNodeColor = (status: Module['status'], isHighlighted: boolean = false): string => {
+  if (isHighlighted) {
+    // Return highlighted versions of the colors
+    switch (status) {
+      case 'implemented':
+        return { background: '#2ecc71', border: '#27ae60', highlight: { background: '#58d68d', border: '#1e8449' } }
+      case 'placeholder':
+        return { background: '#f1c40f', border: '#f39c12', highlight: { background: '#f7dc6f', border: '#d68910' } }
+      case 'error':
+        return { background: '#e74c3c', border: '#c0392b', highlight: { background: '#ec7063', border: '#a93226' } }
+      default:
+        return { background: '#bdc3c7', border: '#95a5a6', highlight: { background: '#d5dbdb', border: '#7f8c8d' } }
+    }
+  }
+  
+  // Return normal colors
   switch (status) {
     case 'implemented':
       return '#27ae60' // Green
@@ -192,28 +240,22 @@ const getNodeColor = (status: Module['status']): string => {
 
 const initializeNetwork = () => {
   if (!graphContainer.value) {
-    console.error('GraphView: Container not found')
+    moduleStore.setError('Graph container not found')
     return
   }
 
   // Ensure container has dimensions
   const containerRect = graphContainer.value.getBoundingClientRect()
-  console.log('GraphView: Container dimensions:', containerRect)
-  console.log('GraphView: Container width/height:', containerRect.width, 'x', containerRect.height)
   
   if (containerRect.width === 0 || containerRect.height === 0) {
-    console.warn('GraphView: Container has zero dimensions, retrying...')
+    // Retry initialization if container has no dimensions yet
     setTimeout(initializeNetwork, 100)
     return
   }
 
-  const modules = moduleStore.modules
-  console.log('GraphView: Initializing with modules:', Object.keys(modules).length)
-  
+  const modules = moduleStore.filteredModulesMap
   const nodes = createNodes(modules)
   const edges = createEdges(modules)
-
-  console.log('GraphView: Created nodes:', nodes.length, 'edges:', edges.length)
 
   const data: Data = { nodes, edges }
   
@@ -274,7 +316,6 @@ const initializeNetwork = () => {
 
   try {
     network = new Network(graphContainer.value, data, options)
-    console.log('GraphView: Network created successfully')
 
     // Handle node selection
     network.on('click', (params) => {
@@ -301,7 +342,6 @@ const initializeNetwork = () => {
     network.on('doubleClick', (params) => {
       if (params.nodes.length > 0) {
         const nodeId = params.nodes[0] as string
-        console.log('Double clicked node:', nodeId)
         // Future: Expand/collapse or edit functionality
       }
     })
@@ -338,7 +378,7 @@ const initializeNetwork = () => {
 
     // Network stabilized event
     network.on('stabilized', () => {
-      console.log('GraphView: Network stabilized')
+      // Network has finished stabilizing
     })
 
     // Fit network to viewport with delay to ensure proper rendering
@@ -350,19 +390,18 @@ const initializeNetwork = () => {
             easingFunction: 'easeInOutQuad'
           }
         })
-        console.log('GraphView: Network fitted to viewport')
       }
     }, 100)
 
   } catch (error) {
-    console.error('GraphView: Failed to create network:', error)
+    moduleStore.setError('Failed to initialize network visualization')
   }
 }
 
 const updateNetwork = () => {
   if (!network) return
 
-  const modules = moduleStore.modules
+  const modules = moduleStore.filteredModulesMap
   const nodes = createNodes(modules)
   const edges = createEdges(modules)
 
@@ -385,7 +424,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
   if (!network) return
 
   const selectedNodes = network.getSelectedNodes()
-  const allNodes = Object.keys(moduleStore.modules)
+  const allNodes = Object.keys(moduleStore.filteredModulesMap)
   
   switch (event.key) {
     case 'Enter':
@@ -479,7 +518,6 @@ const handleContextMenuAction = async (action: string, nodeId?: string) => {
       if (nodeId) {
         dependencyMode.isActive = true
         dependencyMode.sourceNodeId = nodeId
-        console.log('Dependency mode started from:', nodeId)
       }
       break
     case 'edit-module':
@@ -492,7 +530,7 @@ const handleContextMenuAction = async (action: string, nodeId?: string) => {
         try {
           await moduleStore.deleteModule(nodeId)
         } catch (error) {
-          console.error('Failed to delete module:', error)
+          moduleStore.setError('Failed to delete module')
         }
       }
       break
@@ -502,7 +540,7 @@ const handleContextMenuAction = async (action: string, nodeId?: string) => {
       }
       break
     default:
-      console.log('Unhandled action:', action)
+      // Unhandled action
   }
 }
 
@@ -516,13 +554,21 @@ const handleCreateModule = async (moduleData: Omit<Module, 'name'> & { name: str
     await moduleStore.createModule(moduleData)
     showCreateDialog.value = false
   } catch (error) {
-    console.error('Failed to create module:', error)
+    moduleStore.setError('Failed to create module')
   }
 }
 
-// Filter handlers
-const handleFilterChange = (statuses: Set<Module['status']>) => {
-  statusFilter.value = statuses
+// Search and filter handlers
+const handleSearchChange = (data: { query: string, filters: any[] }) => {
+  moduleStore.updateSearch(data)
+}
+
+const handleStatusFilterChange = (statuses: Set<Module['status']>) => {
+  moduleStore.setStatusFilters(statuses)
+}
+
+const clearAllFilters = () => {
+  moduleStore.clearAllFilters()
 }
 
 // Drag & drop handlers
@@ -581,11 +627,11 @@ const handleDrop = async (event: DragEvent) => {
       })
       
       // Position the node (this would require custom positioning logic)
-      console.log('Module created at position:', canvasPosition)
+      // Module will be positioned by the layout algorithm
     }
     
   } catch (error) {
-    console.error('Failed to create module from drop:', error)
+    moduleStore.setError('Failed to create module from drop')
   }
 }
 
@@ -605,7 +651,6 @@ const handleNodeClickForDependency = (nodeId: string) => {
   if (!dependencyMode.sourceNodeId) {
     // Select source node
     dependencyMode.sourceNodeId = nodeId
-    console.log('Dependency source selected:', nodeId)
   } else if (dependencyMode.sourceNodeId !== nodeId) {
     // Create dependency between source and target
     createDependency(dependencyMode.sourceNodeId, nodeId)
@@ -622,15 +667,14 @@ const createDependency = async (sourceId: string, targetId: string) => {
       await moduleStore.updateModule(targetId, { 
         dependencies: updatedDependencies 
       })
-      console.log(`Created dependency: ${sourceId} -> ${targetId}`)
     }
   } catch (error) {
-    console.error('Failed to create dependency:', error)
+    moduleStore.setError('Failed to create dependency')
   }
 }
 
-// Watch for module changes
-watch(() => moduleStore.modules, updateNetwork, { deep: true })
+// Watch for module changes (including filtered results)
+watch(() => moduleStore.filteredModulesMap, updateNetwork, { deep: true })
 
 // Watch for selection changes
 watch(() => moduleStore.selectedModuleId, (selectedId) => {
@@ -649,20 +693,15 @@ watch(() => moduleStore.selectedModuleId, (selectedId) => {
 })
 
 onMounted(() => {
-  console.log('GraphView: Component mounted')
-  
   // Ensure container is ready before initialization
   setTimeout(() => {
     // Wait for modules to be loaded before initializing network
     if (Object.keys(moduleStore.modules).length > 0) {
-      console.log('GraphView: Modules already loaded, initializing network')
       initializeNetwork()
     } else {
-      console.log('GraphView: Waiting for modules to load')
       // Watch for first load
       const unwatch = watch(() => moduleStore.modules, (newModules) => {
         if (Object.keys(newModules).length > 0) {
-          console.log('GraphView: Modules loaded, initializing network')
           initializeNetwork()
           unwatch()
         }
@@ -692,6 +731,72 @@ onUnmounted(() => {
   border-bottom: 1px solid #e0e0e0;
   padding: 12px 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.search-section {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.filter-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.filter-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.results-summary {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.clear-filters-btn {
+  padding: 6px 12px;
+  border: 1px solid #e1e5e9;
+  border-radius: 6px;
+  background: white;
+  color: #666;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.clear-filters-btn:hover {
+  border-color: #4a90e2;
+  color: #4a90e2;
+  background: #f8f9fa;
+}
+
+/* Responsive design for filter bar */
+@media (max-width: 768px) {
+  .filter-bar {
+    padding: 8px 12px;
+  }
+  
+  .filter-section {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .filter-summary {
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 
 .graph-view {
