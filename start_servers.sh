@@ -19,7 +19,7 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}🚀 SWAI Cursor Server Startup Script${NC}"
 echo "======================================"
 
-# Function to check if port is in use
+# check_port checks if the specified TCP port is currently in use by any process. Returns 0 if in use, 1 if free.
 check_port() {
     local port=$1
     if lsof -i :$port >/dev/null 2>&1; then
@@ -29,13 +29,13 @@ check_port() {
     fi
 }
 
-# Function to get process info for a port
+# get_port_process outputs the PID and process name of the process listening on the specified port.
 get_port_process() {
     local port=$1
     lsof -i :$port | grep LISTEN | awk '{print $2, $1}' | head -1
 }
 
-# Function to kill process on port
+# kill_port_process attempts to terminate the process occupying the specified port, prompting the user for confirmation, and returns success if the port is freed or was already free.
 kill_port_process() {
     local port=$1
     echo -e "${YELLOW}🔍 Finding process on port $port...${NC}"
@@ -69,7 +69,7 @@ kill_port_process() {
     fi
 }
 
-# Function to find available port
+# find_available_port searches for a free TCP port starting from the given port and returns the first available one within a range of 11 ports; exits with an error if none are found.
 find_available_port() {
     local start_port=$1
     local port=$start_port
