@@ -6,20 +6,23 @@
 ## Pre-Testing Setup
 
 ```bash
-# Ensure virtual environment is activated (venv is in root directory)
-cd /home/thh3/work/SWAI_Cursor
-source .venv/bin/activate
+# Ensure you're in project root with virtual environment activated
+# Virtual environment (.venv) should already be activated
 
-# Start the backend Flask server
-FLASK_APP=backend.api:app python -m flask run --port 5000
+# Option 1: Use automated startup script (recommended)
+./start_servers.sh
+
+# Option 2: Manual startup
+# If you get "Address already in use" errors, run: ./kill_ports.sh
+python -m flask --app app.py run --debug
 
 # Open a second terminal for testing
 # New terminal:
-cd /home/thh3/work/SWAI_Cursor
-source .venv/bin/activate
+# Navigate to project root
+# Virtual environment should already be activated
 ```
 
-**Note**: The Flask app is now located in `backend/api/__init__.py` and must be run from the project root directory.
+**Note**: The Flask app is located in `app.py` in the project root directory and must be run from the project root directory.
 
 ## Test Scenarios
 

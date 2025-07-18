@@ -9,7 +9,7 @@ import pytest
 from pathlib import Path
 from typing import Dict, Any
 
-from loader import (
+from backend.services.loader import (
     ModuleNode, 
     ModuleStatus, 
     IOSpec,

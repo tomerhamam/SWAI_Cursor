@@ -20,6 +20,22 @@ api.interceptors.response.use(
   response => response,
   error => {
     console.error('API Error:', error.response?.status, error.response?.data)
+    
+    // Enhanced error handling with user-friendly messages
+    if (error.code === 'ECONNABORTED') {
+      error.message = 'Request timeout - please check your connection'
+    } else if (error.response?.status === 404) {
+      error.message = error.response.data?.error || 'Resource not found'
+    } else if (error.response?.status === 409) {
+      error.message = error.response.data?.error || 'Resource already exists'
+    } else if (error.response?.status >= 500) {
+      error.message = 'Server error - please try again later'
+    } else if (error.response?.data?.error) {
+      error.message = error.response.data.error
+    } else if (!navigator.onLine) {
+      error.message = 'No internet connection - please check your network'
+    }
+    
     return Promise.reject(error)
   }
 )

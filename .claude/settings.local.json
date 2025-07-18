@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh pr:*)",
+      "Bash(npm run test:run:*)",
+      "Bash(./start_servers.sh)",
+      "Bash(npm run type-check:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run test:e2e:*)",
+      "Bash(git add:*)",
+      "Bash(find:*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(git remote get-url:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(ls:*)",
+      "Bash(rm:*)"
+    ],
+    "deny": []
+  }
+}

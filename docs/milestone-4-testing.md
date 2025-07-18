@@ -7,12 +7,13 @@
 
 ```bash
 # Start backend server
-cd backend && source venv/bin/activate && python -m flask run --debug &
+# From the project root:
+python -m flask --app app.py run --debug &
 
 # Start frontend development server
 cd frontend && npm run dev &
 
-# Open TWO browser windows/tabs to http://localhost:5173
+# Open TWO browser windows/tabs to http://localhost:3001
 # Label them as "Client A" and "Client B" for testing
 ```
 
