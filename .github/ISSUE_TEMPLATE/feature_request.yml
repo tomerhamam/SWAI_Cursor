@@ -1,0 +1,121 @@
+name: Feature Request
+description: Suggest a new feature for the Modular AI Architecture System
+title: "[Feature] "
+labels: ["enhancement", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to suggest a new feature! 
+        Please fill out this template to help us understand your request.
+
+  - type: textarea
+    id: user-story
+    attributes:
+      label: User Story
+      description: Describe the feature from a user's perspective
+      placeholder: "As a [type of user], I want [feature] so that [benefit]."
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve?
+      placeholder: Describe the current limitation or pain point
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How should this feature work?
+      placeholder: Describe your ideal solution and user experience
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions
+      description: Have you considered any alternative approaches?
+      placeholder: Describe any alternative solutions you've considered
+
+  - type: checkboxes
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: What conditions must be met for this feature to be complete?
+      options:
+        - label: Feature works as described
+        - label: Documentation is updated
+        - label: Tests are included
+        - label: No existing functionality is broken
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Low - Nice to have
+        - Medium - Would be helpful
+        - High - Important for my workflow
+        - Critical - Blocking my usage
+    validations:
+      required: true
+
+  - type: dropdown
+    id: effort
+    attributes:
+      label: Estimated Effort
+      description: How complex do you think this feature would be to implement?
+      options:
+        - Small - Simple enhancement
+        - Medium - Moderate development effort
+        - Large - Significant development effort
+        - Unknown - Not sure
+
+  - type: dropdown
+    id: target-version
+    attributes:
+      label: Target Version
+      description: When would you like to see this feature?
+      options:
+        - v1.x - Near-term patch/minor release
+        - v2.0 - Next major release
+        - Future - Not urgent
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case Details
+      description: Provide specific examples of how you would use this feature
+      placeholder: |
+        - Scenario 1: When I...
+        - Scenario 2: If I need to...
+        - Expected outcome: I should be able to...
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or examples
+      placeholder: Screenshots, mockups, or examples from other tools
+
+  - type: checkboxes
+    id: research
+    attributes:
+      label: Research Done
+      description: Have you checked if this feature already exists or was requested?
+      options:
+        - label: I searched existing issues
+          required: true
+        - label: I checked the documentation
+          required: true
+        - label: I looked at the roadmap
+          required: true

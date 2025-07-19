@@ -1,0 +1,149 @@
+name: Bug Report
+description: Report a bug in the Modular AI Architecture System
+title: "[Bug] "
+labels: ["bug", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out this template to help us reproduce and fix the issue.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: Describe what went wrong
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the bug
+      placeholder: |
+        1. Go to...
+        2. Click on...
+        3. See error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: Describe the expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: Describe what actually happened instead
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this bug?
+      options:
+        - Critical - Application crashes or data loss
+        - High - Feature is unusable
+        - Medium - Feature partially works
+        - Low - Minor issue or cosmetic
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: Frequency
+      description: How often does this bug occur?
+      options:
+        - Always - 100% of the time
+        - Often - More than 50% of the time
+        - Sometimes - Occasionally
+        - Rarely - Hard to reproduce
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      description: Which browser are you using?
+      placeholder: "e.g., Chrome 120, Firefox 115, Safari 17"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: Which operating system are you using?
+      placeholder: "e.g., Windows 11, macOS 14, Ubuntu 22.04"
+    validations:
+      required: true
+
+  - type: input
+    id: screen-size
+    attributes:
+      label: Screen Size
+      description: What's your screen resolution or device?
+      placeholder: "e.g., 1920x1080, iPhone 14, iPad Pro"
+
+  - type: input
+    id: version
+    attributes:
+      label: Application Version
+      description: What version of the application are you using?
+      placeholder: "e.g., v1.0.0, latest, commit hash"
+
+  - type: textarea
+    id: console-errors
+    attributes:
+      label: Console Errors
+      description: Any error messages in the browser console?
+      placeholder: |
+        Open browser developer tools (F12) and check for errors.
+        Copy and paste any relevant error messages here.
+      render: text
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots/Videos
+      description: Add screenshots or videos to help explain the problem
+      placeholder: Drag and drop images here or paste image URLs
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other information that might be relevant
+      placeholder: |
+        - Did this work before?
+        - Does it happen with specific data/modules?
+        - Any workarounds you've found?
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I searched existing issues to avoid duplicates
+          required: true
+        - label: I can reproduce this bug consistently
+          required: true
+        - label: I checked the browser console for errors
+          required: true
+        - label: I provided all the required information
+          required: true
