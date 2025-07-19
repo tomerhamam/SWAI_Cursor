@@ -35,15 +35,27 @@
           📚
         </button>
         
-        <button 
-          @click="exportFilteredData"
-          class="export-toggle"
-          :disabled="filteredModulesCount === 0"
-          aria-label="Export filtered data"
-          title="Export filtered modules"
-        >
-          📤
-        </button>
+        <div class="export-dropdown" :class="{ active: showExportMenu }">
+          <button 
+            @click="toggleExportMenu"
+            class="export-toggle"
+            :disabled="filteredModulesCount === 0"
+            aria-label="Export filtered data"
+            :title="filteredModulesCount === 0 ? 'No modules to export' : 'Export filtered modules'"
+          >
+            📤
+          </button>
+          
+          <!-- Export format dropdown -->
+          <div v-if="showExportMenu" class="export-menu">
+            <button @click="exportFilteredData('json')" class="export-option">
+              📄 JSON
+            </button>
+            <button @click="exportFilteredData('csv')" class="export-option">
+              📊 CSV
+            </button>
+          </div>
+        </div>
       </div>
       
       <!-- Search suggestions dropdown -->
@@ -142,6 +154,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useModuleStore } from '../stores/moduleStore'
 import type { Module } from '../stores/moduleStore'
 import SavedSearches from './SavedSearches.vue'
+import { exportModules } from '../utils/csvExport'
 
 interface SearchSuggestion {
   id: string
@@ -165,6 +178,7 @@ const searchQuery = ref('')
 const searchInput = ref<HTMLInputElement>()
 const showSuggestions = ref(false)
 const showSavedSearches = ref(false)
+const showExportMenu = ref(false)
 const highlightedIndex = ref(-1)
 const recentSearches = ref<string[]>([])
 const activeFilters = ref<SearchFilter[]>([])
@@ -339,6 +353,14 @@ const handleBlur = () => {
   }, 200)
 }
 
+// Close export menu when clicking outside
+const handleDocumentClick = (event: Event) => {
+  const target = event.target as HTMLElement
+  if (!target.closest('.export-dropdown')) {
+    showExportMenu.value = false
+  }
+}
+
 const selectSuggestion = (text: string) => {
   searchQuery.value = text
   showSuggestions.value = false
@@ -411,10 +433,21 @@ const toggleSavedSearches = () => {
   showSavedSearches.value = !showSavedSearches.value
   if (showSavedSearches.value) {
     showSuggestions.value = false
+    showExportMenu.value = false
   }
 }
 
-const exportFilteredData = () => {
+const toggleExportMenu = () => {
+  showExportMenu.value = !showExportMenu.value
+  if (showExportMenu.value) {
+    showSuggestions.value = false
+    showSavedSearches.value = false
+  }
+}
+
+const exportFilteredData = (format: 'json' | 'csv') => {
+  showExportMenu.value = false
+  
   const filteredData = moduleStore.filteredModules.map(module => ({
     name: module.name,
     description: module.description,
@@ -426,26 +459,13 @@ const exportFilteredData = () => {
     file_path: module.file_path
   }))
   
-  const exportData = {
-    exportedAt: new Date().toISOString(),
+  const additionalData = {
     searchQuery: searchQuery.value,
     statusFilters: Array.from(moduleStore.statusFilters),
-    searchFilters: activeFilters.value,
-    totalResults: filteredData.length,
-    modules: filteredData
+    searchFilters: activeFilters.value
   }
   
-  const dataStr = JSON.stringify(exportData, null, 2)
-  const dataBlob = new Blob([dataStr], { type: 'application/json' })
-  const url = URL.createObjectURL(dataBlob)
-  
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `filtered-modules-${new Date().toISOString().split('T')[0]}.json`
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+  exportModules(filteredData, format, 'filtered-modules', additionalData)
 }
 
 // Emits
@@ -464,12 +484,16 @@ onMounted(() => {
   } catch (error) {
     console.warn('Failed to load search history:', error)
   }
+  
+  // Add document click listener for export menu
+  document.addEventListener('click', handleDocumentClick)
 })
 
 onUnmounted(() => {
   if (searchTimeout) {
     clearTimeout(searchTimeout)
   }
+  document.removeEventListener('click', handleDocumentClick)
 })
 
 // Watch for changes in search query
@@ -563,9 +587,12 @@ defineExpose({
   background: #e3f2fd;
 }
 
-.export-toggle {
+.export-dropdown {
   position: absolute;
   right: 68px;
+}
+
+.export-toggle {
   background: none;
   border: none;
   font-size: 16px;
@@ -585,6 +612,49 @@ defineExpose({
 .export-toggle:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.export-dropdown.active .export-toggle {
+  color: #28a745;
+  background: #e8f5e8;
+}
+
+.export-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #e1e5e9;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1001;
+  margin-top: 4px;
+  min-width: 120px;
+}
+
+.export-option {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.export-option:hover {
+  background: #f8f9fa;
+}
+
+.export-option:first-child {
+  border-radius: 6px 6px 0 0;
+}
+
+.export-option:last-child {
+  border-radius: 0 0 6px 6px;
 }
 
 .saved-searches-dropdown {

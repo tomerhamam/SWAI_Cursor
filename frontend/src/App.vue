@@ -32,8 +32,12 @@ import ModulePanel from './components/ModulePanel.vue'
 import ModulePalette from './components/ModulePalette.vue'
 import ErrorBoundary from './components/ErrorBoundary.vue'
 import { useModuleStore } from './stores/moduleStore'
+import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts'
 
 const moduleStore = useModuleStore()
+
+// Initialize keyboard shortcuts
+useKeyboardShortcuts()
 
 const selectedModule = computed(() => moduleStore.selectedModule)
 const connectionStatus = computed(() => moduleStore.connectionStatus)

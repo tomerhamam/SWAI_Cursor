@@ -178,14 +178,60 @@ describe('BulkOperationsPanel', () => {
       vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockLink as any)
       vi.spyOn(document.body, 'removeChild').mockImplementation(() => mockLink as any)
 
+      // Click the export button to open dropdown
       const exportButton = wrapper.find('[data-testid="export-selected"]')
       expect(exportButton.exists()).toBe(true)
       
       await exportButton.trigger('click')
+      await wrapper.vm.$nextTick()
+      
+      // Find and click the JSON export option
+      const jsonOption = wrapper.find('.export-option:first-child')
+      expect(jsonOption.exists()).toBe(true)
+      expect(jsonOption.text()).toContain('JSON')
+      
+      await jsonOption.trigger('click')
       
       expect(document.createElement).toHaveBeenCalledWith('a')
       expect(mockLink.click).toHaveBeenCalled()
       expect(mockLink.download).toMatch(/selected-modules-\d{4}-\d{2}-\d{2}\.json/)
+    })
+
+    it('exports selected modules as CSV', async () => {
+      const wrapper = mount(BulkOperationsPanel, { props: { show: true } })
+      
+      store.toggleModuleSelection('UserAuthentication')
+      store.toggleModuleSelection('DataProcessor')
+      
+      await wrapper.vm.$nextTick()
+
+      // Mock document methods
+      const mockLink = {
+        href: '',
+        download: '',
+        click: vi.fn()
+      }
+      vi.spyOn(document, 'createElement').mockReturnValue(mockLink as any)
+      vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockLink as any)
+      vi.spyOn(document.body, 'removeChild').mockImplementation(() => mockLink as any)
+
+      // Click the export button to open dropdown
+      const exportButton = wrapper.find('[data-testid="export-selected"]')
+      expect(exportButton.exists()).toBe(true)
+      
+      await exportButton.trigger('click')
+      await wrapper.vm.$nextTick()
+      
+      // Find and click the CSV export option
+      const csvOption = wrapper.find('.export-option:last-child')
+      expect(csvOption.exists()).toBe(true)
+      expect(csvOption.text()).toContain('CSV')
+      
+      await csvOption.trigger('click')
+      
+      expect(document.createElement).toHaveBeenCalledWith('a')
+      expect(mockLink.click).toHaveBeenCalled()
+      expect(mockLink.download).toMatch(/selected-modules-\d{4}-\d{2}-\d{2}\.csv/)
     })
   })
 

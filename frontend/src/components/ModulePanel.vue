@@ -7,7 +7,24 @@
       </button>
     </div>
     
-    <div class="panel-content">
+    <!-- Loading state -->
+    <div v-if="isLoading" class="panel-content">
+      <SkeletonLoader
+        :rows="1"
+        :show-title="false"
+        :show-text="true"
+      />
+      <div class="section">
+        <SkeletonLoader
+          :rows="3"
+          :show-title="true"
+          :show-text="false"
+          :show-actions="true"
+        />
+      </div>
+    </div>
+    
+    <div v-else class="panel-content">
       <div class="module-info">
         <div class="info-item">
           <label>Status:</label>
@@ -76,9 +93,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import type { Module } from '../stores/moduleStore'
 import { useModuleStore } from '../stores/moduleStore'
+import SkeletonLoader from './SkeletonLoader.vue'
 
 interface Props {
   module: Module
@@ -91,6 +109,15 @@ defineEmits<{
 
 const moduleStore = useModuleStore()
 const isDeleting = ref(false)
+const isLoading = ref(false)
+
+// Simulate loading when module changes
+watch(() => props.module, () => {
+  isLoading.value = true
+  setTimeout(() => {
+    isLoading.value = false
+  }, 300)
+}, { immediate: true })
 
 const selectDependency = (depName: string) => {
   moduleStore.selectModule(depName)
@@ -98,12 +125,12 @@ const selectDependency = (depName: string) => {
 
 const editModule = () => {
   // Future: Open edit modal or inline editing
-  console.log('Edit module functionality coming soon')
+  moduleStore.setError('Edit module functionality coming soon')
 }
 
 const duplicateModule = () => {
   // Future: Duplicate module functionality
-  console.log('Duplicate module functionality coming soon')
+  moduleStore.setError('Duplicate module functionality coming soon')
 }
 
 const deleteModule = async () => {

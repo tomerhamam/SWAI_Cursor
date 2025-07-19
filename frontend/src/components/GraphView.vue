@@ -27,6 +27,8 @@
         >
           {{ getLayoutLabel() }}
         </button>
+        
+        <UndoRedoControls />
         <div v-if="moduleStore.hasActiveFilters" class="filter-summary">
           <span class="results-summary">
             {{ moduleStore.searchResultsCount }} of {{ moduleStore.moduleCount }} modules
@@ -68,14 +70,20 @@
       Use arrow keys to navigate between modules. Press Enter to select a module, Space to open context menu, or Tab to navigate to controls.
     </div>
     
-    <div v-if="isLoading" class="loading-overlay">
-      <div class="loading-spinner"></div>
-      <p>Loading modules...</p>
-    </div>
-    <div v-if="error" class="error-overlay">
-      <p>{{ error }}</p>
-      <button @click="retryLoad">Retry</button>
-    </div>
+    <LoadingSpinner
+      v-if="isLoading"
+      :overlay="true"
+      size="large"
+      message="Loading modules..."
+      :submessage="loadingMessage"
+    />
+    <ErrorDisplay
+      :error="error"
+      variant="overlay"
+      title="Failed to Load Modules"
+      :on-retry="retryLoad"
+      :on-dismiss="() => moduleStore.clearError()"
+    />
     
     <!-- Context Menu -->
     <ContextMenu
@@ -113,6 +121,9 @@ import ModuleCreationDialog from './ModuleCreationDialog.vue'
 import StatusFilter from './StatusFilter.vue'
 import GlobalSearch from './GlobalSearch.vue'
 import BulkOperationsPanel from './BulkOperationsPanel.vue'
+import UndoRedoControls from './UndoRedoControls.vue'
+import LoadingSpinner from './LoadingSpinner.vue'
+import ErrorDisplay from './ErrorDisplay.vue'
 
 // Type definitions for vis.js
 interface VisNodeChosenValues {
@@ -134,6 +145,7 @@ let network: Network | null = null
 
 const isLoading = computed(() => moduleStore.isLoading)
 const error = computed(() => moduleStore.error)
+const loadingMessage = ref('Fetching module data from server...')
 
 // Context menu state
 const contextMenu = reactive({
@@ -303,6 +315,8 @@ const initializeNetwork = () => {
     setTimeout(initializeNetwork, 100)
     return
   }
+  
+  loadingMessage.value = 'Building network visualization...'
 
   const modules = moduleStore.filteredModulesMap
   const nodes = createNodes(modules)
@@ -452,6 +466,7 @@ const initializeNetwork = () => {
     // Network stabilized event
     network.on('stabilized', () => {
       // Network has finished stabilizing
+      loadingMessage.value = 'Finalizing layout...'
     })
 
     // Fit network to viewport with delay to ensure proper rendering
@@ -1095,55 +1110,7 @@ onUnmounted(() => {
   z-index: 100;
 }
 
-.loading-overlay,
-.error-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background: rgba(255, 255, 255, 0.9);
-  z-index: 10;
-}
-
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3498db;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.error-overlay p {
-  color: #e74c3c;
-  margin-bottom: 1rem;
-  text-align: center;
-}
-
-.error-overlay button {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  background: #3498db;
-  color: white;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.error-overlay button:hover {
-  background: #2980b9;
-}
+/* Error styles moved to ErrorDisplay component */
 
 /* Screen reader only content */
 .sr-only {
