@@ -210,3 +210,9 @@ Temporary Items
 # Project-specific
 build_logs/
 *.log 
+
+# Frontend test reports and artifacts
+frontend/playwright-report/
+frontend/test-results/
+frontend/coverage/
+frontend/dist/

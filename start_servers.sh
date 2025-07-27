@@ -32,7 +32,15 @@ check_port() {
 # get_port_process outputs the PID and process name of the process listening on the specified port.
 get_port_process() {
     local port=$1
-    lsof -i :$port | grep LISTEN | awk '{print $2, $1}' | head -1
+    # Try lsof first
+    local result=$(lsof -i :$port 2>/dev/null | grep LISTEN | awk '{print $2, $1}' | head -1)
+    
+    # If lsof didn't find anything, try netstat (works better for some Node.js processes)
+    if [ -z "$result" ]; then
+        result=$(netstat -tlnp 2>/dev/null | grep ":$port " | awk '{print $7}' | cut -d'/' -f1,2 | sed 's|/| |' | head -1)
+    fi
+    
+    echo "$result"
 }
 
 # kill_port_process attempts to terminate the process occupying the specified port, prompting the user for confirmation, and returns success if the port is freed or was already free.
@@ -143,10 +151,34 @@ cd frontend || {
     exit 1
 }
 
-if [ $FRONTEND_PORT -eq 3001 ]; then
-    npm run dev &
+# Create a temporary vite config if using non-default ports
+if [ $FRONTEND_PORT -ne 3001 ] || [ $BACKEND_PORT -ne 5000 ]; then
+    cat > vite.config.temp.ts << EOF
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+
+// Temporary config with dynamic ports
+export default defineConfig({
+  plugins: [vue()],
+  resolve: {
+    alias: {
+      '@': '/src'
+    }
+  },
+  server: {
+    port: $FRONTEND_PORT,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:$BACKEND_PORT',
+        changeOrigin: true
+      }
+    }
+  }
+})
+EOF
+    npx vite --config vite.config.temp.ts &
 else
-    npx vite --port $FRONTEND_PORT &
+    npm run dev &
 fi
 
 FRONTEND_PID=$!
@@ -155,7 +187,29 @@ sleep 3
 # Check if frontend started successfully
 if ! ps -p $FRONTEND_PID > /dev/null; then
     echo -e "${RED}❌ Frontend server failed to start${NC}"
+    echo -e "${YELLOW}💡 This might be due to:${NC}"
+    echo -e "   - Port $FRONTEND_PORT still in use"
+    echo -e "   - Node.js/npm issues"
+    echo -e "   - Missing dependencies"
+    echo -e "${YELLOW}💡 Try running: ./kill_ports.sh && npm install${NC}"
+    
+    # Clean up
     kill $BACKEND_PID 2>/dev/null || true
+    if [ -f "frontend/vite.config.temp.ts" ]; then
+        rm "frontend/vite.config.temp.ts"
+    fi
+    exit 1
+fi
+
+# Double-check that the frontend is actually listening on the expected port
+sleep 2
+if ! check_port $FRONTEND_PORT; then
+    echo -e "${RED}❌ Frontend server started but not listening on port $FRONTEND_PORT${NC}"
+    echo -e "${YELLOW}💡 The process may have failed silently. Check for error messages above.${NC}"
+    kill $FRONTEND_PID $BACKEND_PID 2>/dev/null || true
+    if [ -f "frontend/vite.config.temp.ts" ]; then
+        rm "frontend/vite.config.temp.ts"
+    fi
     exit 1
 fi
 
@@ -176,6 +230,23 @@ echo
 echo -e "${YELLOW}🛑 To stop servers:${NC}"
 echo "   kill $BACKEND_PID $FRONTEND_PID"
 echo "   OR press Ctrl+C in this terminal"
+
+# Cleanup function for graceful shutdown
+cleanup() {
+    echo -e "\n${YELLOW}🛑 Shutting down servers...${NC}"
+    kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true
+    
+    # Clean up temporary config if it exists
+    if [ -f "frontend/vite.config.temp.ts" ]; then
+        rm "frontend/vite.config.temp.ts"
+        echo -e "${GREEN}✅ Cleaned up temporary config${NC}"
+    fi
+    
+    exit 0
+}
+
+# Set up signal handlers
+trap cleanup SIGINT SIGTERM
 
 # Wait for servers (allows Ctrl+C to kill both)
 wait 
