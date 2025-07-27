@@ -6,7 +6,7 @@
 set -e  # Exit on any error
 
 PROJECT_ROOT="/home/thh3/work/SWAI_Cursor"
-BACKEND_PORT=5000
+BACKEND_PORT=8080
 FRONTEND_PORT=3001
 
 # Colors for output
@@ -93,6 +93,30 @@ find_available_port() {
     echo $port
 }
 
+# detect_backend_port attempts to detect which port the Flask backend is actually using
+detect_backend_port() {
+    local timeout=10
+    local elapsed=0
+    
+    while [ $elapsed -lt $timeout ]; do
+        # Check ports in likely range (8080-8089)
+        for port in {8080..8089}; do
+            if check_port $port; then
+                # Try to verify it's our Flask app by checking if /health responds
+                if curl -s "http://localhost:$port/health" >/dev/null 2>&1; then
+                    echo $port
+                    return 0
+                fi
+            fi
+        done
+        sleep 1
+        ((elapsed++))
+    done
+    
+    # Fallback to default
+    echo 8080
+}
+
 # Navigate to project root
 echo -e "${BLUE}📁 Navigating to project root...${NC}"
 cd "$PROJECT_ROOT" || {
@@ -124,16 +148,12 @@ else
     echo -e "${GREEN}✅ Port $FRONTEND_PORT is available for frontend${NC}"
 fi
 
-# Start backend server
+# Start backend server (Flask app now handles port selection internally)
 echo -e "${BLUE}🐍 Starting Flask backend server...${NC}"
-if [ $BACKEND_PORT -eq 5000 ]; then
-    python -m flask --app app.py run --debug &
-else
-    python -m flask --app app.py run --debug --port $BACKEND_PORT &
-fi
+python app.py &
 
 BACKEND_PID=$!
-sleep 2
+sleep 3
 
 # Check if backend started successfully
 if ! ps -p $BACKEND_PID > /dev/null; then
@@ -141,7 +161,10 @@ if ! ps -p $BACKEND_PID > /dev/null; then
     exit 1
 fi
 
-echo -e "${GREEN}✅ Backend server started (PID: $BACKEND_PID, Port: $BACKEND_PORT)${NC}"
+# Detect actual backend port
+echo -e "${YELLOW}🔍 Detecting backend port...${NC}"
+ACTUAL_BACKEND_PORT=$(detect_backend_port)
+echo -e "${GREEN}✅ Backend server started (PID: $BACKEND_PID, Port: $ACTUAL_BACKEND_PORT)${NC}"
 
 # Start frontend server
 echo -e "${BLUE}⚛️  Starting Vue frontend server...${NC}"
@@ -152,7 +175,7 @@ cd frontend || {
 }
 
 # Create a temporary vite config if using non-default ports
-if [ $FRONTEND_PORT -ne 3001 ] || [ $BACKEND_PORT -ne 5000 ]; then
+if [ $FRONTEND_PORT -ne 3001 ] || [ $ACTUAL_BACKEND_PORT -ne 8080 ]; then
     cat > vite.config.temp.ts << EOF
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -169,7 +192,7 @@ export default defineConfig({
     port: $FRONTEND_PORT,
     proxy: {
       '/api': {
-        target: 'http://localhost:$BACKEND_PORT',
+        target: 'http://localhost:$ACTUAL_BACKEND_PORT',
         changeOrigin: true
       }
     }
@@ -219,9 +242,9 @@ echo -e "${GREEN}✅ Frontend server started (PID: $FRONTEND_PID, Port: $FRONTEN
 echo
 echo -e "${GREEN}🎉 Both servers started successfully!${NC}"
 echo "========================================"
-echo -e "${BLUE}Backend:${NC}  http://localhost:$BACKEND_PORT"
+echo -e "${BLUE}Backend:${NC}  http://localhost:$ACTUAL_BACKEND_PORT"
 echo -e "${BLUE}Frontend:${NC} http://localhost:$FRONTEND_PORT"
-echo -e "${BLUE}API Test:${NC} http://localhost:$BACKEND_PORT/api/modules"
+echo -e "${BLUE}API Test:${NC} http://localhost:$ACTUAL_BACKEND_PORT/api/modules"
 echo
 echo -e "${YELLOW}📝 Server PIDs:${NC}"
 echo -e "   Backend:  $BACKEND_PID"

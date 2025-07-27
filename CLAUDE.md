@@ -89,15 +89,15 @@ cd frontend && npm run build  # Production build
 - Never try: `cd backend && source venv/bin/activate`
 
 ### Port Configuration
-- Backend: Port 5000 (Flask default)
+- Backend: Port 8080 (default, with automatic fallback to 8081-8089 if busy)
 - Frontend: Port 3001 (configured in vite.config.ts)
-- NOT the Vite default of 5173
+- Note: Backend will automatically find an available port starting from 8080
 
 ### Server Management
 - Use `./start_servers.sh` for automated startup
 - Use `./kill_ports.sh` to clear port conflicts
 - Check server health:
-  - Backend: `http://localhost:5000/api/modules`
+  - Backend: `http://localhost:8080/api/modules` (or the actual port shown during startup)
   - Frontend: `http://localhost:3001`
 
 ## Current Development Status

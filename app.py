@@ -6,6 +6,7 @@ Provides API endpoints for serving the frontend and executing module surrogates.
 """
 
 import json
+import socket
 from pathlib import Path
 from typing import Dict, Any
 
@@ -589,13 +590,51 @@ def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
 
 
+def find_available_port(start_port: int = 8080, max_attempts: int = 10) -> int:
+    """
+    Find an available port starting from the given port.
+    
+    Args:
+        start_port: The starting port to check
+        max_attempts: Maximum number of ports to try
+        
+    Returns:
+        An available port number
+        
+    Raises:
+        RuntimeError: If no available port is found within the range
+    """
+    for port in range(start_port, start_port + max_attempts):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            sock.bind(('localhost', port))
+            sock.close()
+            return port
+        except OSError:
+            continue
+        finally:
+            sock.close()
+    
+    raise RuntimeError(f"No available port found in range {start_port}-{start_port + max_attempts - 1}")
+
+
 def main():
     """Run the Flask development server."""
     print("Starting Modular AI Architecture server...")
     print("Loading modules...")
     load_module_cache()
     
-    print(f"Server starting at http://localhost:5000")
+    # Find an available port starting from 8080
+    try:
+        port = find_available_port(8080)
+        print(f"Server starting at http://localhost:{port}")
+        if port != 8080:
+            print(f"Note: Default port 8080 was in use, using port {port} instead")
+    except RuntimeError as e:
+        print(f"Error: {e}")
+        print("Falling back to default Flask behavior...")
+        port = 5000
+    
     print("Available endpoints:")
     print("  GET  /                     - Main interface")
     print("  GET  /api/modules          - List all modules")
@@ -604,7 +643,7 @@ def main():
     print("  POST /api/run              - Execute surrogate")
     print("  GET  /health               - Health check")
     
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=True)
 
 
 @app.route('/health')
