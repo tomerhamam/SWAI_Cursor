@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SWAI Cursor - Modular AI Architecture Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #cy {
+            width: 100%;
+            height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        #info-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 320px;
+            max-height: 80vh;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+
+        #info-panel h3 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+            font-size: 18px;
+            font-weight: 600;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+        }
+
+        #info-panel .info-item {
+            margin-bottom: 12px;
+            padding: 8px;
+            background: rgba(52, 152, 219, 0.05);
+            border-radius: 6px;
+            border-left: 4px solid #3498db;
+        }
+
+        #info-panel .info-item strong {
+            color: #2c3e50;
+            display: block;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        #info-panel .info-item span {
+            color: #34495e;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        #legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            z-index: 1000;
+        }
+
+        #legend h4 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            margin-right: 10px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            z-index: 1000;
+        }
+
+        .controls button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 2px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .controls button:hover {
+            background: #2980b9;
+            transform: translateY(-1px);
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #7f8c8d;
+            font-style: italic;
+            padding: 20px;
+        }
+
+        .dependency-count {
+            background: #e74c3c;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-implemented { background: #d5f4e6; color: #27ae60; }
+        .status-placeholder { background: #fdeaa7; color: #f39c12; }
+        .status-error { background: #fadbd8; color: #e74c3c; }
+    </style>
+</head>
+<body>
+    <div id="cy"></div>
+    
+    <div class="controls">
+        <button onclick="cy.fit()" title="Fit to view (0)">🔍 Fit</button>
+        <button onclick="cy.zoom(cy.zoom() * 1.2)" title="Zoom in (+)">➕</button>
+        <button onclick="cy.zoom(cy.zoom() * 0.8)" title="Zoom out (-)">➖</button>
+        <button onclick="resetView()" title="Reset view">🏠</button>
+    </div>
+
+    <div id="info-panel">
+        <h3>📊 Project Overview</h3>
+        <div class="info-item">
+            <strong>Project Name</strong>
+            <span>SWAI Cursor - Modular AI Architecture</span>
+        </div>
+        <div class="info-item">
+            <strong>Architecture</strong>
+            <span>Full-stack web app with Flask backend and Vue.js frontend</span>
+        </div>
+        <div class="info-item">
+            <strong>Purpose</strong>
+            <span>Visual modeling and management of AI-enhanced software systems using YAML-based module definitions</span>
+        </div>
+        <div class="empty-state">
+            Click on any node to see detailed information
+        </div>
+    </div>
+
+    <div id="legend">
+        <h4>🎨 Node Types</h4>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #2c3e50;"></div>
+            <span>Root Project</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #e74c3c;"></div>
+            <span>Backend (Python)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #3498db;"></div>
+            <span>Frontend (Vue/TS)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #f39c12;"></div>
+            <span>Services</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #27ae60;"></div>
+            <span>Components</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #9b59b6;"></div>
+            <span>Core Functions</span>
+        </div>
+    </div>
+
+    <script>
+        // Codebase structure analysis
+        const elements = {
+            nodes: [
+                // Root node
+                {
+                    data: {
+                        id: 'root',
+                        label: 'SWAI Cursor\nModular AI Architecture',
+                        type: 'root',
+                        size: 2500,
+                        path: '/home/thh3/work/SWAI_Cursor',
+                        description: 'Full-stack web application for visual modeling of AI-enhanced software systems',
+                        dependencies: 0,
+                        complexity: 'high'
+                    }
+                },
+
+                // Main Backend Branch
+                {
+                    data: {
+                        id: 'backend',
+                        label: 'Backend\n(Flask/Python)',
+                        type: 'backend',
+                        size: 1800,
+                        path: '/backend',
+                        description: 'Flask backend providing REST API for module management and surrogate execution',
+                        dependencies: 0,
+                        complexity: 'high'
+                    }
+                },
+
+                // Backend sub-branches
+                {
+                    data: {
+                        id: 'app_py',
+                        label: 'app.py\nMain Flask App',
+                        type: 'service',
+                        size: 608,
+                        path: '/app.py',
+                        description: 'Main Flask application with API endpoints for module CRUD and surrogate execution',
+                        dependencies: 4,
+                        complexity: 'high'
+                    }
+                },
+                {
+                    data: {
+                        id: 'services',
+                        label: 'Services\nCore Logic',
+                        type: 'service',
+                        size: 1184,
+                        path: '/backend/services',
+                        description: 'Core business logic services for module loading, graph building, and surrogates',
+                        dependencies: 0,
+                        complexity: 'high'
+                    }
+                },
+                {
+                    data: {
+                        id: 'loader_py',
+                        label: 'loader.py\nModule Validation',
+                        type: 'function',
+                        size: 178,
+                        path: '/backend/services/loader.py',
+                        description: 'YAML module loading and Pydantic schema validation',
+                        dependencies: 3,
+                        complexity: 'medium'
+                    }
+                },
+                {
+                    data: {
+                        id: 'graph_builder_py',
+                        label: 'graph_builder.py\nDependency Graph',
+                        type: 'function',
+                        size: 454,
+                        path: '/backend/services/graph_builder.py',
+                        description: 'Advanced dependency resolution and vis.js graph generation',
+                        dependencies: 2,
+                        complexity: 'high'
+                    }
+                },
+                {
+                    data: {
+                        id: 'surrogate_py',
+                        label: 'surrogate.py\nExecution Engine',
+                        type: 'function',
+                        size: 255,
+                        path: '/backend/services/surrogate.py',
+                        description: 'Pluggable module execution system with static and mock-LLM surrogates',
+                        dependencies: 1,
+                        complexity: 'medium'
+                    }
+                },
+                {
+                    data: {
+                        id: 'watcher_py',
+                        label: 'watcher.py\nFile Monitoring',
+                        type: 'function',
+                        size: 297,
+                        path: '/backend/services/watcher.py',
+                        description: 'File system monitoring for hot reload of YAML modules',
+                        dependencies: 2,
+                        complexity: 'medium'
+                    }
+                },
+
+                // Frontend Main Branch
+                {
+                    data: {
+                        id: 'frontend',
+                        label: 'Frontend\n(Vue 3/TypeScript)',
+                        type: 'frontend',
+                        size: 2000,
+                        path: '/frontend',
+                        description: 'Vue.js 3 frontend with vis.js network visualization and reactive state management',
+                        dependencies: 0,
+                        complexity: 'high'
+                    }
+                },
+
+                // Frontend sub-branches
+                {
+                    data: {
+                        id: 'components',
+                        label: 'Components\nUI Layer',
+                        type: 'component',
+                        size: 2204,
+                        path: '/frontend/src/components',
+                        description: 'Vue.js components for interactive graph visualization and module management',
+                        dependencies: 0,
+                        complexity: 'high'
+                    }
+                },
+                {
+                    data: {
+                        id: 'graph_view_vue',
+                        label: 'GraphView.vue\nMain Visualization',
+                        type: 'function',
+                        size: 846,
+                        path: '/frontend/src/components/GraphView.vue',
+                        description: 'Main network visualization using vis.js with drag & drop and context menus',
+                        dependencies: 6,
+                        complexity: 'high'
+                    }
+                },
+                {
+                    data: {
+                        id: 'module_panel_vue',
+                        label: 'ModulePanel.vue\nDetails Sidebar',
+                        type: 'function',
+                        size: 340,
+                        path: '/frontend/src/components/ModulePanel.vue',
+                        description: 'Module details sidebar with editing capabilities',
+                        dependencies: 2,
+                        complexity: 'medium'
+                    }
+                },
+                {
+                    data: {
+                        id: 'module_creation_vue',
+                        label: 'ModuleCreationDialog.vue\nModule Creation',
+                        type: 'function',
+                        size: 341,
+                        path: '/frontend/src/components/ModuleCreationDialog.vue',
+                        description: 'Modal dialog for creating new modules with form validation',
+                        dependencies: 2,
+                        complexity: 'medium'
+                    }
+                },
+                {
+                    data: {
+                        id: 'module_palette_vue',
+                        label: 'ModulePalette.vue\nDrag & Drop Library',
+                        type: 'function',
+                        size: 216,
+                        path: '/frontend/src/components/ModulePalette.vue',
+                        description: 'Drag & drop module library with predefined templates',
+                        dependencies: 1,
+                        complexity: 'medium'
+                    }
+                },
+
+                // State Management
+                {
+                    data: {
+                        id: 'stores',
+                        label: 'Stores\nState Management',
+                        type: 'service',
+                        size: 128,
+                        path: '/frontend/src/stores',
+                        description: 'Pinia state management for reactive data and API communication',
+                        dependencies: 0,
+                        complexity: 'medium'
+                    }
+                },
+                {
+                    data: {
+                        id: 'module_store_ts',
+                        label: 'moduleStore.ts\nModule State',
+                        type: 'function',
+                        size: 128,
+                        path: '/frontend/src/stores/moduleStore.ts',
+                        description: 'Centralized module state management with API integration',
+                        dependencies: 1,
+                        complexity: 'medium'
+                    }
+                },
+
+                // API Layer
+                {
+                    data: {
+                        id: 'api_service_ts',
+                        label: 'apiService.ts\nAPI Client',
+                        type: 'function',
+                        size: 83,
+                        path: '/frontend/src/services/apiService.ts',
+                        description: 'Axios-based API client for backend communication',
+                        dependencies: 1,
+                        complexity: 'low'
+                    }
+                },
+
+                // Module System
+                {
+                    data: {
+                        id: 'modules',
+                        label: 'Modules\nYAML Definitions',
+                        type: 'service',
+                        size: 500,
+                        path: '/modules',
+                        description: 'YAML module definitions following Pydantic schema validation',
+                        dependencies: 0,
+                        complexity: 'medium'
+                    }
+                }
+            ],
+
+            edges: [
+                // Root connections
+                { data: { source: 'root', target: 'backend', type: 'contains' } },
+                { data: { source: 'root', target: 'frontend', type: 'contains' } },
+                { data: { source: 'root', target: 'modules', type: 'contains' } },
+
+                // Backend internal structure
+                { data: { source: 'backend', target: 'app_py', type: 'contains' } },
+                { data: { source: 'backend', target: 'services', type: 'contains' } },
+                
+                // Services breakdown
+                { data: { source: 'services', target: 'loader_py', type: 'contains' } },
+                { data: { source: 'services', target: 'graph_builder_py', type: 'contains' } },
+                { data: { source: 'services', target: 'surrogate_py', type: 'contains' } },
+                { data: { source: 'services', target: 'watcher_py', type: 'contains' } },
+
+                // Frontend internal structure
+                { data: { source: 'frontend', target: 'components', type: 'contains' } },
+                { data: { source: 'frontend', target: 'stores', type: 'contains' } },
+                
+                // Components breakdown
+                { data: { source: 'components', target: 'graph_view_vue', type: 'contains' } },
+                { data: { source: 'components', target: 'module_panel_vue', type: 'contains' } },
+                { data: { source: 'components', target: 'module_creation_vue', type: 'contains' } },
+                { data: { source: 'components', target: 'module_palette_vue', type: 'contains' } },
+
+                // Store breakdown
+                { data: { source: 'stores', target: 'module_store_ts', type: 'contains' } },
+
+                // Dependencies (cross-cutting concerns)
+                { data: { source: 'app_py', target: 'loader_py', type: 'depends' } },
+                { data: { source: 'app_py', target: 'graph_builder_py', type: 'depends' } },
+                { data: { source: 'app_py', target: 'surrogate_py', type: 'depends' } },
+                { data: { source: 'graph_builder_py', target: 'loader_py', type: 'depends' } },
+                { data: { source: 'watcher_py', target: 'loader_py', type: 'depends' } },
+                
+                // Frontend dependencies
+                { data: { source: 'graph_view_vue', target: 'module_store_ts', type: 'depends' } },
+                { data: { source: 'module_panel_vue', target: 'module_store_ts', type: 'depends' } },
+                { data: { source: 'module_creation_vue', target: 'module_store_ts', type: 'depends' } },
+                { data: { source: 'module_store_ts', target: 'api_service_ts', type: 'depends' } },
+                
+                // Cross-layer dependencies
+                { data: { source: 'api_service_ts', target: 'app_py', type: 'depends' } },
+                { data: { source: 'loader_py', target: 'modules', type: 'depends' } },
+                { data: { source: 'app_py', target: 'modules', type: 'depends' } }
+            ]
+        };
+
+        // Initialize Cytoscape
+        const cy = cytoscape({
+            container: document.getElementById('cy'),
+            elements: elements,
+
+            style: [
+                // Root node
+                {
+                    selector: 'node[type = "root"]',
+                    style: {
+                        'background-color': '#2c3e50',
+                        'color': '#ffffff',
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'font-size': '14px',
+                        'font-weight': 'bold',
+                        'width': 'mapData(size, 0, 2500, 80, 140)',
+                        'height': 'mapData(size, 0, 2500, 80, 140)',
+                        'border-width': 3,
+                        'border-color': '#34495e',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '120px'
+                    }
+                },
+
+                // Backend nodes
+                {
+                    selector: 'node[type = "backend"]',
+                    style: {
+                        'background-color': '#e74c3c',
+                        'color': '#ffffff',
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'font-size': '12px',
+                        'font-weight': 'bold',
+                        'width': 'mapData(size, 0, 2000, 60, 120)',
+                        'height': 'mapData(size, 0, 2000, 60, 120)',
+                        'border-width': 2,
+                        'border-color': '#c0392b',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '100px'
+                    }
+                },
+
+                // Frontend nodes
+                {
+                    selector: 'node[type = "frontend"]',
+                    style: {
+                        'background-color': '#3498db',
+                        'color': '#ffffff',
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'font-size': '12px',
+                        'font-weight': 'bold',
+                        'width': 'mapData(size, 0, 2000, 60, 120)',
+                        'height': 'mapData(size, 0, 2000, 60, 120)',
+                        'border-width': 2,
+                        'border-color': '#2980b9',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '100px'
+                    }
+                },
+
+                // Service nodes
+                {
+                    selector: 'node[type = "service"]',
+                    style: {
+                        'background-color': '#f39c12',
+                        'color': '#ffffff',
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'font-size': '11px',
+                        'font-weight': 'bold',
+                        'width': 'mapData(size, 0, 1200, 50, 100)',
+                        'height': 'mapData(size, 0, 1200, 50, 100)',
+                        'border-width': 2,
+                        'border-color': '#e67e22',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '90px'
+                    }
+                },
+
+                // Component nodes
+                {
+                    selector: 'node[type = "component"]',
+                    style: {
+                        'background-color': '#27ae60',
+                        'color': '#ffffff',
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'font-size': '11px',
+                        'font-weight': 'bold',
+                        'width': 'mapData(size, 0, 2500, 50, 100)',
+                        'height': 'mapData(size, 0, 2500, 50, 100)',
+                        'border-width': 2,
+                        'border-color': '#229954',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '90px'
+                    }
+                },
+
+                // Function nodes (leaf nodes)
+                {
+                    selector: 'node[type = "function"]',
+                    style: {
+                        'background-color': '#9b59b6',
+                        'color': '#ffffff',
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'font-size': '10px',
+                        'width': 'mapData(size, 0, 850, 40, 80)',
+                        'height': 'mapData(size, 0, 850, 40, 80)',
+                        'border-width': 1,
+                        'border-color': '#8e44ad',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '75px'
+                    }
+                },
+
+                // Containment edges (hierarchical structure)
+                {
+                    selector: 'edge[type = "contains"]',
+                    style: {
+                        'width': 3,
+                        'line-color': '#34495e',
+                        'target-arrow-color': '#34495e',
+                        'target-arrow-shape': 'triangle',
+                        'curve-style': 'bezier',
+                        'arrow-scale': 1.2
+                    }
+                },
+
+                // Dependency edges
+                {
+                    selector: 'edge[type = "depends"]',
+                    style: {
+                        'width': 2,
+                        'line-color': '#e74c3c',
+                        'target-arrow-color': '#e74c3c',
+                        'target-arrow-shape': 'triangle',
+                        'curve-style': 'bezier',
+                        'line-style': 'dashed',
+                        'arrow-scale': 1.0
+                    }
+                },
+
+                // Hover effects
+                {
+                    selector: 'node:selected',
+                    style: {
+                        'border-width': 4,
+                        'border-color': '#f1c40f',
+                        'overlay-opacity': 0.1,
+                        'overlay-color': '#f1c40f'
+                    }
+                },
+
+                // Node hover
+                {
+                    selector: 'node:active',
+                    style: {
+                        'overlay-opacity': 0.2,
+                        'overlay-color': '#3498db'
+                    }
+                }
+            ],
+
+            layout: {
+                name: 'breadthfirst',
+                directed: true,
+                roots: '#root',
+                padding: 50,
+                spacingFactor: 1.5,
+                avoidOverlap: true,
+                nodeDimensionsIncludeLabels: true
+            },
+
+            wheelSensitivity: 0.1,
+            minZoom: 0.1,
+            maxZoom: 5
+        });
+
+        // Node click handler
+        cy.on('tap', 'node', function(evt) {
+            const node = evt.target;
+            const data = node.data();
+            
+            updateInfoPanel(data);
+        });
+
+        // Update info panel with node details
+        function updateInfoPanel(nodeData) {
+            const panel = document.getElementById('info-panel');
+            
+            const complexityColor = {
+                'low': '#27ae60',
+                'medium': '#f39c12', 
+                'high': '#e74c3c'
+            }[nodeData.complexity] || '#95a5a6';
+
+            const statusBadge = nodeData.type === 'function' ? 
+                `<span class="status-badge status-implemented">Implemented</span>` : '';
+
+            panel.innerHTML = `
+                <h3>📁 ${nodeData.label.replace(/\n/g, ' ')}</h3>
+                <div class="info-item">
+                    <strong>Type</strong>
+                    <span>${nodeData.type.toUpperCase()} ${statusBadge}</span>
+                </div>
+                <div class="info-item">
+                    <strong>File Path</strong>
+                    <span>${nodeData.path}</span>
+                </div>
+                <div class="info-item">
+                    <strong>Size</strong>
+                    <span>${nodeData.size} lines of code</span>
+                </div>
+                <div class="info-item">
+                    <strong>Complexity</strong>
+                    <span style="color: ${complexityColor}; font-weight: 600;">${nodeData.complexity.toUpperCase()}</span>
+                </div>
+                <div class="info-item">
+                    <strong>Dependencies</strong>
+                    <span>${nodeData.dependencies} ${nodeData.dependencies === 1 ? 'dependency' : 'dependencies'}</span>
+                </div>
+                <div class="info-item">
+                    <strong>Description</strong>
+                    <span>${nodeData.description}</span>
+                </div>
+            `;
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            switch(e.key) {
+                case '+':
+                case '=':
+                    e.preventDefault();
+                    cy.zoom(cy.zoom() * 1.2);
+                    break;
+                case '-':
+                    e.preventDefault();
+                    cy.zoom(cy.zoom() * 0.8);
+                    break;
+                case '0':
+                    e.preventDefault();
+                    cy.fit();
+                    break;
+            }
+        });
+
+        // Reset view function
+        function resetView() {
+            cy.fit();
+            cy.center();
+        }
+
+        // Initial fit
+        cy.ready(function() {
+            cy.fit();
+            
+            // Select root node initially
+            const rootNode = cy.getElementById('root');
+            if (rootNode.length > 0) {
+                updateInfoPanel(rootNode.data());
+            }
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            cy.resize();
+        });
+    </script>
+</body>
+</html>
