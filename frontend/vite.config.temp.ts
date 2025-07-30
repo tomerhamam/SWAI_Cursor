@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-// https://vitejs.dev/config/
+// Temporary config with dynamic ports
 export default defineConfig({
   plugins: [vue()],
   resolve: {
@@ -13,9 +13,9 @@ export default defineConfig({
     port: 3001,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:5001',
         changeOrigin: true
       }
     }
   }
-}) 
+})
