@@ -19,6 +19,15 @@ export interface SearchFilter {
   label: string
 }
 
+export interface UndoCommand {
+  id: string
+  type: 'create' | 'update' | 'delete' | 'bulk_update' | 'bulk_delete'
+  description: string
+  timestamp: number
+  undo: () => Promise<void>
+  redo: () => Promise<void>
+}
+
 export const useModuleStore = defineStore('module', () => {
   // State
   const modules = ref<Record<string, Module>>({})
@@ -35,6 +44,11 @@ export const useModuleStore = defineStore('module', () => {
   const searchQuery = ref('')
   const searchFilters = ref<SearchFilter[]>([])
   const statusFilters = ref<Set<Module['status']>>(new Set())
+
+  // Undo/Redo state
+  const undoStack = ref<UndoCommand[]>([])
+  const redoStack = ref<UndoCommand[]>([])
+  const maxUndoSteps = ref(50)
 
   // Getters
   const selectedModule = computed(() => {
@@ -135,6 +149,12 @@ export const useModuleStore = defineStore('module', () => {
     return statuses
   })
 
+  // Undo/Redo computed properties
+  const canUndo = computed(() => undoStack.value.length > 0)
+  const canRedo = computed(() => redoStack.value.length > 0)
+  const lastUndoAction = computed(() => undoStack.value[undoStack.value.length - 1]?.description || '')
+  const lastRedoAction = computed(() => redoStack.value[redoStack.value.length - 1]?.description || '')
+
   // Actions
   async function loadModules() {
     isLoading.value = true
@@ -165,10 +185,40 @@ export const useModuleStore = defineStore('module', () => {
     selectedModuleId.value = null
   }
 
-  async function updateModule(moduleId: string, updates: Partial<Module>) {
+  async function updateModule(moduleId: string, updates: Partial<Module>, skipUndo = false) {
     try {
+      // Store the original module data before update for undo
+      const originalModule = modules.value[moduleId]
+      if (!originalModule) {
+        throw new Error(`Module ${moduleId} not found`)
+      }
+      
       const updatedModule = await apiService.updateModule(moduleId, updates)
       modules.value[moduleId] = updatedModule
+      
+      // Add to undo stack
+      if (!skipUndo) {
+        const changedFields = Object.keys(updates).join(', ')
+        const undoCommand: UndoCommand = {
+          id: `update-${moduleId}-${Date.now()}`,
+          type: 'update',
+          description: `Update ${changedFields} in "${moduleId}"`,
+          timestamp: Date.now(),
+          undo: async () => {
+            // Restore original values for the changed fields
+            const revertUpdates: Partial<Module> = {}
+            Object.keys(updates).forEach(key => {
+              revertUpdates[key as keyof Module] = originalModule[key as keyof Module]
+            })
+            await updateModule(moduleId, revertUpdates, true) // Skip undo for the revert
+          },
+          redo: async () => {
+            await updateModule(moduleId, updates, true) // Skip undo for the redo
+          }
+        }
+        addToUndoStack(undoCommand)
+      }
+      
       return updatedModule
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update module'
@@ -183,10 +233,28 @@ export const useModuleStore = defineStore('module', () => {
     }
   }
 
-  async function createModule(module: Omit<Module, 'name'> & { name: string }) {
+  async function createModule(module: Omit<Module, 'name'> & { name: string }, skipUndo = false) {
     try {
       const newModule = await apiService.createModule(module)
       modules.value[module.name] = newModule
+      
+      // Add to undo stack
+      if (!skipUndo) {
+        const undoCommand: UndoCommand = {
+          id: `create-${module.name}-${Date.now()}`,
+          type: 'create',
+          description: `Create module "${module.name}"`,
+          timestamp: Date.now(),
+          undo: async () => {
+            await deleteModule(module.name, true) // Skip undo for the delete
+          },
+          redo: async () => {
+            await createModule(module, true) // Skip undo for the create
+          }
+        }
+        addToUndoStack(undoCommand)
+      }
+      
       return newModule
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create module'
@@ -201,12 +269,35 @@ export const useModuleStore = defineStore('module', () => {
     }
   }
 
-  async function deleteModule(moduleId: string) {
+  async function deleteModule(moduleId: string, skipUndo = false) {
     try {
+      // Store the module data before deletion for undo
+      const moduleToDelete = modules.value[moduleId]
+      if (!moduleToDelete) {
+        throw new Error(`Module ${moduleId} not found`)
+      }
+      
       await apiService.deleteModule(moduleId)
       delete modules.value[moduleId]
       if (selectedModuleId.value === moduleId) {
         clearSelection()
+      }
+      
+      // Add to undo stack
+      if (!skipUndo) {
+        const undoCommand: UndoCommand = {
+          id: `delete-${moduleId}-${Date.now()}`,
+          type: 'delete',
+          description: `Delete module "${moduleId}"`,
+          timestamp: Date.now(),
+          undo: async () => {
+            await createModule({ ...moduleToDelete, name: moduleId }, true) // Skip undo for the create
+          },
+          redo: async () => {
+            await deleteModule(moduleId, true) // Skip undo for the delete
+          }
+        }
+        addToUndoStack(undoCommand)
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete module'
@@ -227,6 +318,60 @@ export const useModuleStore = defineStore('module', () => {
 
   function setError(message: string) {
     error.value = message
+  }
+
+  // Undo/Redo actions
+  function addToUndoStack(command: UndoCommand) {
+    undoStack.value.push(command)
+    
+    // Clear redo stack when new action is performed
+    redoStack.value = []
+    
+    // Limit undo stack size
+    if (undoStack.value.length > maxUndoSteps.value) {
+      undoStack.value.shift()
+    }
+  }
+
+  async function undo() {
+    if (!canUndo.value) return
+    
+    const command = undoStack.value.pop()
+    if (command) {
+      try {
+        await command.undo()
+        redoStack.value.push(command)
+      } catch (err) {
+        // If undo fails, put the command back
+        undoStack.value.push(command)
+        const errorMessage = err instanceof Error ? err.message : 'Undo failed'
+        error.value = errorMessage
+        throw new Error(errorMessage)
+      }
+    }
+  }
+
+  async function redo() {
+    if (!canRedo.value) return
+    
+    const command = redoStack.value.pop()
+    if (command) {
+      try {
+        await command.redo()
+        undoStack.value.push(command)
+      } catch (err) {
+        // If redo fails, put the command back
+        redoStack.value.push(command)
+        const errorMessage = err instanceof Error ? err.message : 'Redo failed'
+        error.value = errorMessage
+        throw new Error(errorMessage)
+      }
+    }
+  }
+
+  function clearUndoHistory() {
+    undoStack.value = []
+    redoStack.value = []
   }
 
   // Search and filter actions
@@ -441,6 +586,11 @@ export const useModuleStore = defineStore('module', () => {
     selectedModuleCount,
     canBulkUpdateStatus,
     selectedModuleStatuses,
+    // Undo/Redo getters
+    canUndo,
+    canRedo,
+    lastUndoAction,
+    lastRedoAction,
     // Actions
     loadModules,
     selectModule,
@@ -468,6 +618,10 @@ export const useModuleStore = defineStore('module', () => {
     clearAllSelections,
     isModuleSelected,
     bulkUpdateStatus,
-    bulkDeleteModules
+    bulkDeleteModules,
+    // Undo/Redo actions
+    undo,
+    redo,
+    clearUndoHistory
   }
 }) 

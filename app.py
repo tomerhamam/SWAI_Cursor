@@ -11,6 +11,7 @@ from typing import Dict, Any
 
 from flask import Flask, jsonify, request, send_from_directory, render_template_string
 from flask.wrappers import Response
+from datetime import datetime
 
 from backend.services.loader import load_modules, ModuleNode
 from backend.services.surrogate import registry
@@ -601,8 +602,34 @@ def main():
     print("  GET  /api/modules/<name>   - Get module details")
     print("  GET  /api/surrogates       - List surrogates")
     print("  POST /api/run              - Execute surrogate")
+    print("  GET  /health               - Health check")
     
     app.run(host='0.0.0.0', port=5000, debug=True)
+
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for load balancers and monitoring."""
+    try:
+        # Basic health checks
+        module_count = len(_module_cache)
+        surrogates_count = len(registry.get_available_surrogates())
+        
+        return jsonify({
+            'status': 'healthy',
+            'version': '1.0.0',
+            'timestamp': datetime.utcnow().isoformat(),
+            'modules_loaded': module_count,
+            'surrogates_available': surrogates_count,
+            'uptime': 'healthy'
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'version': '1.0.0',
+            'timestamp': datetime.utcnow().isoformat(),
+            'error': str(e)
+        }), 503
 
 
 if __name__ == '__main__':

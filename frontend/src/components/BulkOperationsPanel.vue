@@ -73,14 +73,26 @@
       <div class="action-group">
         <label class="action-label">Bulk Operations:</label>
         <div class="bulk-action-buttons">
-          <button 
-            @click="exportSelected"
-            class="action-button primary"
-            :disabled="isUpdating"
-            data-testid="export-selected"
-          >
-            📤 Export Selected
-          </button>
+          <div class="export-dropdown" :class="{ active: showExportMenu }">
+            <button 
+              @click="toggleExportMenu"
+              class="action-button primary"
+              :disabled="isUpdating"
+              data-testid="export-selected"
+            >
+              📤 Export Selected
+            </button>
+            
+            <!-- Export format dropdown -->
+            <div v-if="showExportMenu" class="export-menu">
+              <button @click="exportSelected('json')" class="export-option">
+                📄 JSON
+              </button>
+              <button @click="exportSelected('csv')" class="export-option">
+                📊 CSV
+              </button>
+            </div>
+          </div>
           
           <button 
             @click="duplicateSelected"
@@ -131,17 +143,23 @@
     </div>
     
     <!-- Loading Overlay -->
-    <div v-if="isUpdating" class="loading-overlay">
-      <div class="loading-spinner"></div>
-      <span>{{ updateMessage }}</span>
-    </div>
+    <LoadingSpinner
+      v-if="isUpdating"
+      :overlay="true"
+      size="medium"
+      :message="updateMessage"
+      :show-progress="showProgress"
+      :progress="updateProgress"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useModuleStore } from '../stores/moduleStore'
 import type { Module } from '../stores/moduleStore'
+import { exportModules } from '../utils/csvExport'
+import LoadingSpinner from './LoadingSpinner.vue'
 
 interface Props {
   show: boolean
@@ -154,6 +172,9 @@ const moduleStore = useModuleStore()
 const isUpdating = ref(false)
 const updateMessage = ref('')
 const showDeleteConfirm = ref(false)
+const showExportMenu = ref(false)
+const showProgress = ref(false)
+const updateProgress = ref(0)
 
 // Computed properties
 const selectedCount = computed(() => moduleStore.selectedModuleCount)
@@ -186,19 +207,32 @@ const updateStatus = async (newStatus: Module['status']) => {
   if (selectedCount.value === 0) return
   
   isUpdating.value = true
+  showProgress.value = true
+  updateProgress.value = 0
   updateMessage.value = `Updating ${selectedCount.value} module${selectedCount.value > 1 ? 's' : ''} to ${newStatus}...`
+  
+  // Simulate progress
+  const progressInterval = setInterval(() => {
+    updateProgress.value = Math.min(updateProgress.value + 20, 90)
+  }, 200)
   
   try {
     await moduleStore.bulkUpdateStatus(newStatus)
+    clearInterval(progressInterval)
+    updateProgress.value = 100
     updateMessage.value = 'Update completed successfully!'
     setTimeout(() => {
       isUpdating.value = false
       updateMessage.value = ''
+      showProgress.value = false
+      updateProgress.value = 0
     }, 1500)
   } catch (error) {
+    clearInterval(progressInterval)
     console.error('Bulk update failed:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     updateMessage.value = `Update failed: ${errorMessage}. Please try again or contact support if the problem persists.`
+    showProgress.value = false
     setTimeout(() => {
       isUpdating.value = false
       updateMessage.value = ''
@@ -206,7 +240,9 @@ const updateStatus = async (newStatus: Module['status']) => {
   }
 }
 
-const exportSelected = () => {
+const exportSelected = (format: 'json' | 'csv') => {
+  showExportMenu.value = false
+  
   const selectedData = selectedModules.value.map(module => ({
     name: module.name,
     description: module.description,
@@ -214,20 +250,28 @@ const exportSelected = () => {
     version: module.version,
     inputs: module.inputs,
     outputs: module.outputs,
-    dependencies: module.dependencies
+    dependencies: module.dependencies,
+    file_path: module.file_path
   }))
   
-  const dataStr = JSON.stringify(selectedData, null, 2)
-  const dataBlob = new Blob([dataStr], { type: 'application/json' })
-  const url = URL.createObjectURL(dataBlob)
+  const additionalData = {
+    selectionCount: selectedCount.value,
+    selectedStatuses: Array.from(selectedStatuses.value)
+  }
   
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `selected-modules-${new Date().toISOString().split('T')[0]}.json`
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+  exportModules(selectedData, format, 'selected-modules', additionalData)
+}
+
+const toggleExportMenu = () => {
+  showExportMenu.value = !showExportMenu.value
+}
+
+// Close export menu when clicking outside
+const handleDocumentClick = (event: Event) => {
+  const target = event.target as HTMLElement
+  if (!target.closest('.export-dropdown')) {
+    showExportMenu.value = false
+  }
 }
 
 const duplicateSelected = () => {
@@ -274,7 +318,17 @@ const emit = defineEmits<{
 watch(() => selectedCount.value, (newCount) => {
   if (newCount === 0) {
     showDeleteConfirm.value = false
+    showExportMenu.value = false
   }
+})
+
+// Lifecycle
+onMounted(() => {
+  document.addEventListener('click', handleDocumentClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleDocumentClick)
 })
 </script>
 
@@ -419,6 +473,53 @@ watch(() => selectedCount.value, (newCount) => {
   flex-wrap: wrap;
 }
 
+.export-dropdown {
+  position: relative;
+}
+
+.export-dropdown.active .action-button.primary {
+  background: #4a90e2;
+  color: white;
+}
+
+.export-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: white;
+  border: 1px solid #e1e5e9;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1001;
+  margin-top: 4px;
+  min-width: 120px;
+}
+
+.export-option {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.export-option:hover {
+  background: #f8f9fa;
+}
+
+.export-option:first-child {
+  border-radius: 6px 6px 0 0;
+}
+
+.export-option:last-child {
+  border-radius: 0 0 6px 6px;
+}
+
 .action-button {
   padding: 8px 16px;
   border: 2px solid;
@@ -535,36 +636,7 @@ watch(() => selectedCount.value, (newCount) => {
   justify-content: flex-end;
 }
 
-/* Loading Overlay */
-.loading-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.9);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  font-weight: 500;
-  color: #333;
-}
-
-.loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid #f0f0f0;
-  border-top: 3px solid #4a90e2;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
+/* Remove old loading styles - now using LoadingSpinner component */
 
 /* Responsive Design */
 @media (max-width: 768px) {
