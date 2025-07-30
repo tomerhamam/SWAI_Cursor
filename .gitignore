@@ -210,6 +210,7 @@ Temporary Items
 # Project-specific
 build_logs/
 *.log 
+TO_BE_DELETED/
 
 # Frontend test reports and artifacts
 frontend/playwright-report/

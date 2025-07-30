@@ -1,3 +1,6 @@
+<!-- Verified on 2025-07-30 by Claude -->
+<!-- Purpose: Track implementation blockers and unresolved issues -->
+
 # Blockers and Issues
 
 This file tracks implementation blockers, unresolved issues, and items requiring escalation.

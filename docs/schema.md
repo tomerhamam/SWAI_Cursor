@@ -1,3 +1,6 @@
+<!-- Verified on 2025-07-30 by Claude -->
+<!-- Purpose: YAML module schema specification and validation rules -->
+
 # YAML Module Schema Documentation
 
 This document defines the structure and validation rules for YAML module definitions in the Modular AI Architecture system.

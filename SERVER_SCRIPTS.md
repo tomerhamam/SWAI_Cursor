@@ -1,3 +1,6 @@
+<!-- Verified on 2025-07-30 by Claude -->
+<!-- Purpose: Server management and startup scripts documentation -->
+
 # Server Management Scripts
 
 ## Quick Start

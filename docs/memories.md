@@ -1,3 +1,6 @@
+<!-- Verified on 2025-07-30 by Claude -->
+<!-- Purpose: Important project learnings and resolved issues -->
+
 # Project Memories
 
 ## Server Startup Issues - RESOLVED

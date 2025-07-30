@@ -1,3 +1,6 @@
+<!-- Verified on 2025-07-30 by Claude -->
+<!-- Purpose: AI assistant guidance for working with this codebase -->
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.

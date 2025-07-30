@@ -14,7 +14,9 @@
       "Bash(git remote get-url:*)",
       "WebFetch(domain:github.com)",
       "Bash(ls:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }

@@ -1,3 +1,6 @@
+<!-- Verified on 2025-07-30 by Claude -->
+<!-- Purpose: Main project documentation and setup guide -->
+
 # Modular AI Architecture
 
 A modular, visual AI system architecture that enables hierarchical modeling of AI-enhanced software systems with YAML-based module definitions, interactive visualization, and surrogate execution capabilities.
